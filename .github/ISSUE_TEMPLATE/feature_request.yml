@@ -1,0 +1,35 @@
+name: Feature request
+description: Propose a new capability or an improvement to an existing one.
+labels: ['enhancement', 'triage']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the problem, not the solution — the underlying need may have a better answer than the feature you have in mind.
+      placeholder: Our test suite reports results as TAP, not JUnit XML, so DevFlow cannot ingest it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: If you have a concrete idea, sketch it here. Optional.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What are you doing today instead? What other approaches did you rule out?
+
+  - type: dropdown
+    id: willing-to-contribute
+    attributes:
+      label: Would you be willing to contribute this yourself?
+      options:
+        - 'Yes, with guidance'
+        - 'Yes, independently'
+        - 'No'
+    validations:
+      required: true

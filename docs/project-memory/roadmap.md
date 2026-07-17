@@ -1,0 +1,76 @@
+# Roadmap
+
+> Part of the [project memory](../README.md#project-memory). Milestone plan, ordering rationale and dependencies. Dates are targets, not promises; scope cuts are pre-planned (see "Cut lines" below) so slipping costs features, not completion.
+
+## Timeline frame
+
+~3–4 months of part-time solo work (student schedule), targeting a demo-able, self-hostable MVP well before 2027 internship application season.
+
+## Completed
+
+### Milestone 0 — Repository foundation ✅ (2026-07-14, commit pending founder confirmation)
+
+Monorepo (pnpm + Turborepo), engineering standards (ESLint/Prettier/commitlint/EditorConfig), GitHub Flow + Conventional Commits, CI skeleton (quality + commitlint jobs, SHA-pinned actions), dev environment (compose: pgvector Postgres 17 + Redis 7 AOF, loopback-bound), governance (README/LICENSE/CONTRIBUTING/SECURITY/CoC/CODEOWNERS/issue forms/PR template/Dependabot), ADR-0001/0002, doctor script, project memory docs. Passed a formal readiness review after remediating 5 blockers. Details: [development-log.md](../development-log.md).
+
+## Future milestones (order is load-bearing)
+
+### Milestone 1 — GitHub App + webhook ingestion skeleton
+
+**Goal:** GitHub events flow into Postgres, verified and idempotent. The spine of the product.
+**Scope:** `apps/api` (Fastify), `packages/db` (Drizzle + first migrations), GitHub App setup (manifest, docs), `/webhooks/github` endpoint: HMAC verification (constant-time), raw event persistence (append-only), fast ACK; delivery-GUID idempotency; smee/tunnel dev workflow for local webhooks.
+**ADRs due:** Fastify choice; ingestion model (raw-first, idempotency strategy); GitHub App vs OAuth App.
+**Why first:** everything downstream (parsing, detection, UI) consumes what this produces; it also activates the currently-vacuous CI gates with the first real package.
+
+### Milestone 2 — Artifact pipeline: queue + workers + JUnit parsing
+
+**Goal:** from `workflow_run.completed` webhook to normalized test results in Postgres.
+**Scope:** `apps/worker`, BullMQ queues, installation-token client (JWT → token exchange, caching, rate-limit-aware), artifact download + unzip + JUnit XML parsing (streaming, fixture-tested), normalized schema for runs/suites/test results, retries + DLQ, structured logging with correlation IDs across api→queue→worker.
+**ADRs due:** BullMQ choice; test-results data model (incl. partitioning strategy); workspace multi-tenancy schema.
+**Depends on:** M1 (raw events exist).
+
+### Milestone 3 — Flakiness detection engine + PR annotation
+
+**Goal:** the killer feature — DevFlow tells a developer "this failure is a known flake, not you."
+**Scope:** detection: same-commit divergence (retry pass after fail = strong signal), transition-history scoring with temporal decay; configurable thresholds; **Checks API write-back** on PRs; backfill of recent history at installation time (data-volume mitigation).
+**ADRs due:** detection algorithm (the statistical heart — most important ADR of the project).
+**Depends on:** M2 (needs test-result history).
+
+### Milestone 4 — Dashboard + live feed + quarantine workflow
+
+**Goal:** the product becomes visible and daily-usable.
+**Scope:** `apps/web` (React), Auth.js GitHub login, workspace/repo views, flakiest-tests ranking, Socket.IO live run feed (Redis pub/sub fan-out), quarantine propose→human-approve→track workflow.
+**Depends on:** M3 (needs scores to display); auth lands here because this is the first user-facing surface.
+
+### Milestone 5 — AI layer (assistive only) + semantic search
+
+**Goal:** disciplined AI on top of a complete product.
+**Scope:** failure-log clustering ("these 40 failures share one cause"), root-cause-hypothesis summarization for a flaky test, pgvector semantic search over failure history. All behind the amputable-AI interface; all outputs advisory.
+**ADRs due:** AI boundary formalization; embedding/model choices.
+**Depends on:** M2–M3 (needs failure corpus). Deliberately last: proves the product stands without it.
+
+### Milestone 6 — Production hardening + release
+
+**Goal:** "a stranger can run this."
+**Scope:** one-command self-host path (compose including apps), seed/demo data + synthetic flaky-repo generator, dogfooding on DevFlow's own CI, observability polish (metrics, health endpoints), docs (architecture diagrams from real code, self-hosting guide), demo video, v0.1.0 tag + CHANGELOG.
+
+## Dependency graph
+
+```
+M0 ─▶ M1 ─▶ M2 ─▶ M3 ─▶ M4 ─▶ M6
+                   └──▶ M5 ──▶─┘   (M5 parallelizable with M4 if time allows)
+```
+
+## Pre-planned cut lines (if the schedule slips)
+
+1. **First cut:** M5 shrinks to summarization-only (clustering and semantic search dropped).
+2. **Second cut:** quarantine becomes flagging-only (no tracked workflow).
+3. **Third cut:** live feed becomes polling (Socket.IO deferred) — cut last because real-time is a named portfolio goal.
+4. **Never cut:** M1–M3. Ingestion → parsing → detection with PR annotation IS the product; without them there is nothing to show.
+
+## MVP definition (release gate for v0.1.0)
+
+Install the GitHub App on a repo → push code → runs ingested → JUnit results parsed → flaky tests detected and scored → PR check annotates known-flaky failures → maintainer approves quarantine in dashboard → live feed shows activity. Self-hostable with `docker compose up`.
+
+## Post-MVP (recorded, not committed)
+
+GitLab CI / CircleCI adapters; TAP + JSON report formats; trend analytics (build-time regressions, suite health over time); CODEOWNERS-based flake-alert routing; Slack notifications; public sample instance.

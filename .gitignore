@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.turbo/
+coverage/
+
+# Environment — never commit secrets; .env.example is the documented template
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+
+# VS Code: shared team settings are committed, personal state is not
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

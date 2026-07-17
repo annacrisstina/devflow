@@ -1,0 +1,10 @@
+# Free-form issues are disabled: structured forms keep triage manageable,
+# and the contact links route sensitive reports away from the public tracker.
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/annacrisstina/devflow/security/advisories/new
+    about: Report vulnerabilities privately. Never open a public issue for security problems — see SECURITY.md.
+  - name: Question / discussion
+    url: https://github.com/annacrisstina/devflow/discussions
+    about: Ask questions or discuss ideas that are not yet a concrete bug or feature request.

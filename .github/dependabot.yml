@@ -1,0 +1,29 @@
+# Automated dependency updates. Grouped weekly so updates arrive as a few
+# reviewable PRs instead of a daily trickle; security updates bypass grouping
+# and arrive immediately regardless of schedule.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: 'ci(deps)'
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      # Minor + patch updates are low-risk and reviewed as one PR.
+      minor-and-patch:
+        update-types: ['minor', 'patch']
+    # Major versions arrive as individual PRs so each breaking change
+    # gets its own review and its own revert point.
+    commit-message:
+      prefix: 'chore(deps)'

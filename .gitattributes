@@ -1,0 +1,7 @@
+# Normalize line endings to LF in the repository regardless of the
+# contributor's OS — this project is developed on both Windows/WSL and Linux,
+# where mixed CRLF/LF produces phantom diffs and broken shell scripts.
+* text=auto eol=lf
+
+# Shell scripts must stay LF even if a Windows tool rewrites them
+*.sh text eol=lf

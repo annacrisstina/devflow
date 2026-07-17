@@ -1,0 +1,45 @@
+name: Bug report
+description: Something in DevFlow does not behave as documented.
+labels: ['bug', 'triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. **Security vulnerabilities must NOT be reported here** — use the [private security channel](../security/advisories/new) instead (see SECURITY.md).
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+      placeholder: Expected the webhook event to be ingested; instead the API returned 500.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, complete steps. Bugs without reproduction steps usually cannot be fixed.
+      placeholder: |
+        1. docker compose up -d
+        2. pnpm dev
+        3. Send POST /webhooks/github with payload X
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Paste the output of `./scripts/doctor.sh` plus your OS.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Trim to the relevant part. **Redact tokens, secrets and private repository names.**
+      render: shell
