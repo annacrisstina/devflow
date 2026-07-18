@@ -1,0 +1,35 @@
+{
+  "name": "@devflow/queue",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Queue names, job payload contracts and Redis connection factory shared by producers (api) and consumers (worker).",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./ingest": {
+      "types": "./dist/ingest.d.ts",
+      "default": "./dist/ingest.js"
+    },
+    "./connection": {
+      "types": "./dist/connection.d.ts",
+      "default": "./dist/connection.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "bullmq": "^5.56.0",
+    "ioredis": "^5.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
+  }
+}

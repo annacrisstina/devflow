@@ -65,11 +65,14 @@ beforeAll(async () => {
     port: 0,
     logLevel: 'silent',
     databaseUrl: testDbUrl,
+    redisUrl: process.env.DEVFLOW_REDIS_URL ?? 'redis://127.0.0.1:6379',
     webhookSecret: SECRET,
   });
+  await app.ingestQueue.obliterate({ force: true });
 });
 
 afterAll(async () => {
+  await app.ingestQueue.obliterate({ force: true });
   await app.close();
 });
 
@@ -102,6 +105,13 @@ describe('POST /webhooks/github', () => {
     expect(rows[0]?.action).toBe('completed');
     expect(rows[0]?.installationId).toBe(55443322n);
     expect(rows[0]?.payload).toEqual(JSON.parse(fixtureBody.toString('utf8')));
+
+    // workflow_run/completed must dispatch exactly one processing job,
+    // referencing the raw event rather than embedding the payload.
+    const jobs = await app.ingestQueue.getJobs(['waiting', 'delayed']);
+    const job = jobs.find((j) => j.data.deliveryId === deliveryId);
+    expect(job).toBeDefined();
+    expect(job?.data.webhookEventId).toBe(rows[0]?.id.toString());
   });
 
   it('absorbs a redelivered GUID with 200 and keeps a single row', async () => {
@@ -125,6 +135,10 @@ describe('POST /webhooks/github', () => {
     expect(second.statusCode).toBe(200);
     expect(second.json()).toEqual({ status: 'duplicate' });
     expect(await countRows(deliveryId)).toBe(1);
+
+    // The duplicate re-enqueues under the same jobId → still exactly one job.
+    const jobs = await app.ingestQueue.getJobs(['waiting', 'delayed']);
+    expect(jobs.filter((j) => j.data.deliveryId === deliveryId)).toHaveLength(1);
   });
 
   it('rejects a tampered body with 401 and persists nothing', async () => {
