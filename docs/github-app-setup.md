@@ -35,7 +35,15 @@ GitHub → Settings → Developer settings → GitHub Apps → **New GitHub App*
 
 Everything else stays off. Least privilege is deliberate: M1 only receives webhooks. Checks: write arrives in M3 (PR annotation), and installers will be asked to re-approve then — that friction is the honest cost of not asking for permissions before needing them. `installation` / `installation_repositories` lifecycle events are delivered to apps automatically, no subscription needed.
 
-Do **not** generate or download a private key yet. M1 never calls the GitHub API, so the key would be an unused credential lying around; M2 (installation-token client) is the milestone that needs it.
+**Private key (needed from M2 on):** on the App's settings page, generate a private key — GitHub downloads a PKCS#1 PEM file. It is the system's highest-value secret: never enters the repo, lives only in `.env`, base64-encoded:
+
+```sh
+# .env
+DEVFLOW_GITHUB_APP_ID=<App ID, shown at the top of the App settings page>
+DEVFLOW_GITHUB_APP_PRIVATE_KEY_BASE64=$(base64 -w0 ~/Downloads/devflow-dev.*.private-key.pem)
+```
+
+(M1 deliberately skipped this — no key existed while nothing called the GitHub API.)
 
 ## 4. Install the app
 
@@ -54,6 +62,9 @@ pnpm --filter @devflow/db db:migrate
 # terminal 2 — the API
 pnpm --filter @devflow/api dev
 
+# terminal 2b — the worker (processes artifacts; needs the App credentials in .env)
+pnpm --filter @devflow/worker dev
+
 # terminal 3 — the tunnel
 pnpm dlx smee-client --url https://smee.io/<channel> --target http://127.0.0.1:3001/webhooks/github
 ```
@@ -68,6 +79,17 @@ docker exec devflow-postgres psql -U devflow -d devflow \
 ```
 
 Expected: one row per delivery; the API log shows `webhook delivery persisted` with the delivery GUID. Redeliver the same delivery from the App's **Advanced → Recent Deliveries** UI and watch it absorbed (`duplicate webhook delivery absorbed`, still one row for that GUID).
+
+With the worker running and a workflow that uploads a JUnit XML artifact, the pipeline continues automatically — check the results:
+
+```sh
+docker exec devflow-postgres psql -U devflow -d devflow \
+  -c "SELECT w.github_run_id, w.processing_status,
+             (SELECT count(*) FROM test_results t WHERE t.workflow_run_id = w.id) AS results
+      FROM workflow_runs w ORDER BY w.id DESC LIMIT 5;"
+```
+
+`processing_status` meanings: `succeeded` (results parsed), `no_artifacts` (run uploaded nothing), `failed` (permanent error — see `run_artifacts.skipped_reason` and worker logs, correlated by delivery GUID).
 
 ## Troubleshooting
 

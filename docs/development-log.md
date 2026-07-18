@@ -124,4 +124,60 @@ Webhook ingestion at scale (ACK-fast, at-least-once, idempotency keys, out-of-or
 
 ---
 
-_(Next entry: Milestone 2, appended when completed.)_
+## Milestone 2 — Artifact pipeline: queue + worker + JUnit parsing
+
+- **Date:** 2026-07-18
+- **Milestone:** 2
+- **Goal:** from `workflow_run.completed` webhook to normalized test results in Postgres. Founder-trimmed to minimum required complexity: queue infrastructure, worker, GitHub API integration, artifact download, JUnit parsing, persistence — no optional optimizations.
+
+### Completed work
+
+- `@devflow/queue`: the api↔worker contract (queue name, `process-workflow-run` payload, connection factory, enqueue helper carrying the retry policy — 5 attempts, exponential backoff). Payloads reference `webhook_events.id`; the queue is dispatch, never storage.
+- API producer: `workflow_run/completed` deliveries enqueue after raw persist — on the duplicate path too, so GitHub redelivery doubles as the repair mechanism for jobs lost after persist; `jobId = evt-<eventId>` collapses duplicates while queued.
+- `@devflow/db`: `repositories`, `workflow_runs` (unique `(github_run_id, run_attempt)` — attempts are separate rows, M3's divergence signal), `run_artifacts` (per-artifact diagnostics), `test_results` (no unique constraint — parameterized tests; replace-per-run idempotency). Migration 0001.
+- `@devflow/worker`: BullMQ consumer with bounded concurrency and graceful shutdown; pipeline = load-event → normalize-run (convergent upserts) → artifact stage (list → download → scan → persist); `PermanentJobError` marks the run failed and completes the job, everything else rethrows for backoff retry; BullMQ's failed set is the DLQ.
+- GitHub client (in-worker, ~250 lines): hand-rolled RS256 app JWT on `node:crypto` (accepts GitHub's PKCS#1 PEM), per-installation token cache storing promises (single-flight), 404/410→permanent vs everything-else→transient classification, bounded pagination, streamed zip download. `baseUrl`/`fetchImpl` injectable for tests and stubs.
+- JUnit streaming parser (saxes): testsuites/testsuite/testcase with nesting, failure/error/skipped, CDATA, attribute tolerance, 16KB/64KB truncation caps, root-element validation (non-JUnit XML skipped, counted). Zip scan via yauzl with per-entry uncompressed-size cap (zip-bomb guard). Fixture corpus: jest-junit, pytest, Surefire, nested suites, parameterized duplicates, not-junit, malformed.
+- Correlation: the delivery GUID rides the job payload and binds every worker log line — one grep follows a delivery from API ACK to result rows.
+- CI: Redis 7 service container joined Postgres; `DEVFLOW_REDIS_URL` through Turbo strict env.
+
+### Verification (all run, not asserted)
+
+51 automated tests green across 4 packages (queue behavior against real Redis; schema semantics and replace-per-run against real Postgres; parser fixtures; MockAgent'd GitHub client; full artifact-stage pipeline on a real zip). Full `pnpm verify` green. **Live local end-to-end:** real API + Redis + worker + Postgres with a stub GitHub API serving a fixture-built zip — signed webhook → 202 → job → normalize → download → parse → 8 result rows (6 passed / 1 failed / 1 skipped, matching the fixtures exactly) with `processing_status = succeeded` and artifact diagnostics; redelivered GUID → 200 duplicate, rows converged (1 run, 8 results).
+
+### ADRs created
+
+- ADR-0007: BullMQ on Redis (rejected: Kafka, pg-boss/SKIP LOCKED — respectable, RabbitMQ, no-queue).
+- ADR-0008: Normalized test-results data model (attempts-as-rows; replace-per-run; installation as tenancy root until M4 — founder-approved deviation from "tenancy ADR in M2"; partitioning deferred with explicit trigger conditions).
+- ADR-0009: In-house GitHub App client over Octokit (the auth dance is named interview material; PKCS#1 gotcha recorded).
+
+### Lessons learned
+
+1. **pnpm strictness paid out:** the worker importing `ioredis` types transitively failed typecheck — the exact phantom-dependency class M0's tooling was chosen to catch. Fixed by exporting the type from the package that owns the dependency.
+2. **GitHub App keys are PKCS#1** ("BEGIN RSA PRIVATE KEY") — pure-JS JWT libraries that only import PKCS#8 refuse them; `node:crypto.createPrivateKey` accepts both. Discovered by writing the JWT by hand, which was the point of writing it by hand.
+3. **Chaining verification and commit with `;` committed a red state once** — verify must gate the commit (`&&`), not precede it decoratively. The commit was amended after fixing lint; the discipline note stands.
+4. **`<testsuites name>` is report metadata, not a suite** — asserting expectations against real fixture files (not imagined shapes) caught the wrong assumption in the test, not in production.
+
+### Problems encountered
+
+- Node's global fetch ignores npm-undici's `setGlobalDispatcher` — MockAgent testing requires injecting `fetchImpl`; recorded in the client design.
+- A stale M1-era server holding port 3001 disrupted one e2e attempt (same lesson as M1: check port ownership).
+
+### Technical debt introduced (accepted, tracked)
+
+- Rate-limit handling is reactive-only (backoff on 403/429), no proactive header tracking — founder-directed minimalism, recorded in ADR-0009.
+- Artifact pagination bounded at 10×100 per run; oversized/expired artifacts skipped with reasons — visible in `run_artifacts`, not silent.
+- Worker has no health endpoint (logs + queue behavior only) — revisit in M6 compose hardening.
+
+### Interview topics covered by this milestone
+
+Queue design (dispatch-vs-store, at-least-once + DB-level idempotency, DLQ, why not Kafka), GitHub App token dance implemented by hand (JWT claims, clock drift, single-flight caching, PKCS#1), streaming parsing under memory caps, replace-per-run idempotency vs unique constraints, failure taxonomy (permanent vs transient) as the retry policy. Details: [project-memory/interview-notes.md](project-memory/interview-notes.md) §2–3.
+
+### Status & next
+
+- **Milestone 2: complete and locally verified end-to-end; awaiting founder review.** Real-GitHub verification (App + private key + workflow with a JUnit artifact) is a founder step documented in [github-app-setup.md](github-app-setup.md).
+- **Next milestone:** M3 — flakiness detection engine + PR annotation (the killer feature; the detection-algorithm ADR is the most important of the project). Design step first.
+
+---
+
+_(Next entry: Milestone 3, appended when completed.)_

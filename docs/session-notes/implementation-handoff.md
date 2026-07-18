@@ -2,62 +2,63 @@
 
 > **The operational handoff.** Always reflects the latest repository state; updated at the end of EVERY working session. A new engineer (human or AI) should be able to continue from this file alone, without any chat history. Background knowledge lives in [../project-memory/](../project-memory/); read [project-overview.md](../project-memory/project-overview.md) and [implementation-rules.md](../project-memory/implementation-rules.md) first.
 
-**Last updated:** 2026-07-18 (end of session)
+**Last updated:** 2026-07-18 (end of session, M2 complete)
 
 ## Current repository status
 
-- **`main`:** at `3a7116a` (Milestone 0), in sync with `annacrisstina/devflow`.
-- **Branch `feat/db-webhook-events`** (local only — the engineer has no push credentials): **Milestone 1 complete and locally verified**, as five commits:
-  1. `feat(db): add webhook_events schema, migrations and db client`
-  2. `feat(api): scaffold Fastify API with config validation and health endpoint`
-  3. `feat(ingest): add HMAC-verified idempotent GitHub webhook endpoint`
-  4. `docs(docs): add GitHub App setup guide and integration ADR`
-  5. `docs(docs): record milestone 1 completion in project memory` (this commit)
-- **Local infra:** compose containers healthy; migration 0000 applied to the dev DB; `webhook_events` empty (e2e test rows cleaned).
-- **`.env` exists locally** (gitignored) with a generated `DEVFLOW_GITHUB_WEBHOOK_SECRET`.
+- **`main`:** at `7e49ed4` (merge of PR #6 = Milestone 1), in sync with origin. ⚠️ PR #6 was merged with a **merge commit**, not squash — if squash-only/linear history is still the intent (D11), enable it in branch protection settings.
+- **Branch `feat/artifact-pipeline`** (local only — the engineer has no push credentials): **Milestone 2 complete and locally verified end-to-end**, as six commits:
+  1. `feat(ingest): dispatch workflow-run processing jobs through BullMQ`
+  2. `feat(db): add normalized repositories, runs and test results schema`
+  3. `feat(worker): add ingest worker skeleton normalizing workflow runs`
+  4. `feat(worker): add GitHub App auth and artifact API client`
+  5. `feat(worker): parse JUnit artifacts and persist normalized test results`
+  6. `docs(docs): record milestone 2 completion in project memory` (this commit)
+- **Local infra:** compose healthy; migrations 0000+0001 applied; all app tables truncated after e2e (clean).
+- **Dependabot PRs open:** ESLint 10, TypeScript 6 (majors — review individually per D13; not blocking).
 
-## Milestone 1 — what shipped
+## Milestone 2 — what shipped
 
-See [development-log.md](../development-log.md) entry M1 for the full record. Short version: `@devflow/db` (webhook_events, migrations, client) + `@devflow/api` (Fastify 5, env-validated config, pino, `/healthz`, graceful shutdown) + `POST /webhooks/github` (raw-body scoped parser → constant-time HMAC before any parsing → atomic delivery-GUID-idempotent insert → 202/200/401/400/500) + GitHub App setup guide + ADR-0003…0006 + real CI gates (Postgres service container). 13 automated tests + live smee-tunnel e2e, all green.
+Full record: [development-log.md](../development-log.md) M2 entry. Pipeline: `workflow_run.completed` webhook → raw persist (M1) → BullMQ job (`@devflow/queue`, dispatch-not-store, jobId dedup) → `@devflow/worker` (normalize with convergent upserts → GitHub artifact list/download via in-house App client → streaming JUnit parse with caps → replace-per-run persist) → `test_results`. Failure taxonomy: transient throws → 5 backoff retries → failed set (DLQ); `PermanentJobError` → run marked `failed`, job completes. Delivery GUID correlates logs across api→queue→worker. ADR-0007/0008/0009. 51 tests; live local e2e against a stub GitHub API produced 8 correctly classified results and converged under redelivery.
 
-## Founder actions to close M1 (in order)
+## Founder actions to close M2 (in order)
 
-1. **Push the branch** and open the PR. The per-component-PR plan was blocked by missing credentials; options:
-   - _Simplest:_ one PR, squash-merge with title `feat(ingest): add GitHub App webhook ingestion skeleton` (commitlint-valid). Cost: M1 becomes one commit on `main`.
-   - _If per-component history on `main` matters:_ push the branch, then open+merge four sequential PRs by branching off each commit (`git branch tmp <sha>`), oldest first. More clicks, preserves granularity. The five local commits are already commitlint-valid individually.
-2. **Confirm CI is green on GitHub** — first run with the Postgres service container and real gates (closes the M0 review's withheld confidence too).
-3. **Create the GitHub App** following [docs/github-app-setup.md](../github-app-setup.md) (least privilege; do NOT generate a private key yet), install it on a repo with a workflow, and watch a real delivery land: `SELECT delivery_id, event_type FROM webhook_events ORDER BY id DESC LIMIT 5;`
-4. **Confirm Milestone 1** so Milestone 2 design can start (milestone workflow rule 6).
+1. **Push `feat/artifact-pipeline`** and open the PR. Single-PR squash title suggestion (commitlint-valid): `feat(worker): add artifact pipeline from webhook to test results`. (Or sequential per-commit PRs as with M1 — see M1 handoff pattern.)
+2. **Confirm CI green on GitHub** — first run with the Redis service container.
+3. **Real-GitHub verification** (needs the App from M1's checklist, now + a private key):
+   - App settings → generate private key; `.env` gets `DEVFLOW_GITHUB_APP_ID` + `DEVFLOW_GITHUB_APP_PRIVATE_KEY_BASE64` ([github-app-setup.md](../github-app-setup.md), updated this session).
+   - Run api + worker + smee; push to an installed repo whose workflow uploads a JUnit XML artifact; check `workflow_runs.processing_status = 'succeeded'` and `test_results` rows.
+4. **Confirm Milestone 2** → M3 design starts.
 
-## Next milestone: M2 — artifact pipeline (queue + workers + JUnit parsing)
+## Next milestone: M3 — flakiness detection engine + PR annotation
 
-Scope per [roadmap.md](../project-memory/roadmap.md): `apps/worker`, BullMQ, installation-token client (JWT → installation token; the App **private key enters the system here** — generate it only now), artifact download + streaming JUnit XML parsing with real fixtures, normalized runs/suites/results schema, retries + DLQ, correlation IDs across api→queue→worker. ADRs due: BullMQ; test-results data model + partitioning; workspace multi-tenancy schema. **Design step first** (goal + decisions for founder approval before files), per milestone workflow.
+The killer feature. Scope per [roadmap.md](../project-memory/roadmap.md): same-commit divergence detection (attempts are already separate rows — the schema was shaped for this), transition-history scoring with temporal decay, configurable thresholds, Checks API write-back (worker gains Checks:write → installers re-approve permissions), installation-time backfill. **ADR due: the detection algorithm — the most important ADR of the project.** Design step first, per milestone workflow. M3 also needs real accumulated data — the founder running DevFlow on its own repo (dogfooding) between milestones builds the corpus detection will be tuned against.
 
 ## Remaining blockers
 
-- Founder actions above. Nothing else blocks M2 design (which can start on founder approval even before the GitHub App exists — but real-data testing in M2 needs the App installed).
+- Founder actions above. M3 _design_ is unblocked; M3 _validation_ wants real data from dogfooding.
 
 ## Repository health
 
-- `pnpm verify` fully green locally (format, lint, typecheck, build, 13 tests). CI on GitHub not yet exercised for M1 (push pending).
-- Suggested PR title if single-PR route: `feat(ingest): add GitHub App webhook ingestion skeleton`.
+- `pnpm verify` fully green: 4 packages, 51 tests (real Postgres + real Redis locally and in CI). Both CI service containers untested on GitHub until the M2 PR runs.
 
 ## Known technical debt (accepted, tracked)
 
-1. C2: commitlint CI job installs the whole workspace just to lint messages → isolate when it hurts.
-2. `docs/architecture/` placeholder → populate from real code by M2 (ingestion diagram now has real code to describe).
-3. Integration tests need a reachable Postgres (compose/service container) — Docker-less `pnpm verify` fails at the test leg; accepted (fixtures-over-mocks applied to the database).
-4. dotenv v17 emits a banner unless `quiet: true` — already handled in `apps/api`; remember it for future packages loading `.env`.
+1. C2 (M0): commitlint CI job installs the whole workspace → isolate when it hurts.
+2. `docs/architecture/` placeholder — now two milestones of real code to diagram; fill before M3 ships or with it.
+3. Rate-limit handling reactive-only; artifact pagination bounded 10×100; no worker health endpoint (ADR-0009 / dev-log M2; revisit on evidence or in M6).
+4. Docker-less `pnpm verify` fails at the test leg (needs Postgres+Redis) — accepted, fixtures-over-mocks.
 
 ## Environment notes (this machine)
 
-- WSL2; repo on `/mnt/d` (drvfs) → fs ops ~10–30× slower than ext4; cold server start can exceed 2s — poll, don't sleep-once. Move-to-ext4 recommendation stands; founder undecided.
-- pnpm via corepack shim at `~/.local/bin/pnpm` (`corepack enable --install-directory ~/.local/bin`, no sudo). Turbo requires `pnpm` on PATH; if a shell lacks it: `export PATH="$HOME/.local/bin:$PATH"`.
-- Node 20.19.4 local (`.nvmrc` targets 22; engines floor `>=20.19.0` keeps local working). `jq` not installed (use `node -e` for JSON work). No `gh` CLI; no non-interactive git credentials.
-- GitHub username: `annacrisstina`. Contact email in SECURITY/CoC: rohike.contact@gmail.com.
+- WSL2; repo on `/mnt/d` (drvfs) — slow fs; cold server start up to ~16s: **poll, never sleep-once**, and check port ownership before trusting a green curl (stale-process incidents in both M1 and M2).
+- pnpm shim: `~/.local/bin/pnpm` (corepack, no sudo); Turbo needs it on PATH: `export PATH="$HOME/.local/bin:$PATH"`.
+- Node 20.19.4 (`.nvmrc` targets 22; floor `>=20.19.0`). No `jq` (use `node -e`), no `gh`, no non-interactive git credentials.
+- GitHub username: `annacrisstina`. Contact email: rohike.contact@gmail.com.
 
 ## Things to remember before continuing
 
-- Follow the **milestone workflow** and the **NEVER list** in [implementation-rules.md](../project-memory/implementation-rules.md) — design before files, run verifications for real, founder confirmation at milestone boundaries.
-- Update this file at the end of every session; append to [development-log.md](../development-log.md) after every milestone; update project-memory docs when significant decisions are made.
+- **Milestone workflow + NEVER list** ([implementation-rules.md](../project-memory/implementation-rules.md)): design before files, run verifications for real, founder confirmation at milestone boundaries, PRs only.
+- Gate commits on verify with `&&`, never `;` — one red commit slipped through this session and had to be amended.
+- Update this file every session; dev-log every milestone; project memory on significant decisions.
 - The founder communicates in Romanian; the repository is entirely in English.
