@@ -5,8 +5,7 @@ Deployable applications. Each subdirectory is an independently runnable unit wit
 Current:
 
 - [`api`](api/README.md) — HTTP server: GitHub webhook ingestion endpoint, REST API, WebSocket gateway.
+- [`worker`](worker/README.md) — background workers: artifact download, JUnit parsing, flakiness scoring.
 
 Planned (added milestone by milestone, not scaffolded in advance):
-
-- `worker` — background workers: artifact download, JUnit parsing, flakiness scoring.
 - `web` — the web UI.

@@ -1,0 +1,27 @@
+{
+  "name": "@devflow/worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Background workers: consume ingest jobs, fetch artifacts, parse JUnit reports, persist normalized test results.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@devflow/db": "workspace:*",
+    "@devflow/queue": "workspace:*",
+    "bullmq": "^5.56.0",
+    "drizzle-orm": "^0.44.2",
+    "env-schema": "^6.0.1",
+    "pino": "^9.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4.20.3",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
+  }
+}

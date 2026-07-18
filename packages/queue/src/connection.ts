@@ -1,5 +1,7 @@
 import { Redis } from 'ioredis';
 
+export type RedisConnection = Redis;
+
 /**
  * One factory for every BullMQ connection. maxRetriesPerRequest: null is a
  * BullMQ requirement for workers (blocking commands must not be retried by
