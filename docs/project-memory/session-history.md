@@ -125,6 +125,10 @@ M1 was merged to `main` as PR #6 — with a **merge commit**, not the prescribed
 
 Notable incidents: pnpm strictness caught a phantom `ioredis` type import (the M0 tooling argument, vindicated); one commit briefly landed on a red verify because `;` chained what `&&` should have gated (amended, lesson logged); Node's global fetch ignores npm-undici's MockAgent (hence injectable `fetchImpl`).
 
+## M2 merge + post-merge closeout (2026-07-18)
+
+Before pushing, the founder directed removal of all `Co-Authored-By`/AI-attribution trailers from the unpushed history — done via `git filter-branch --msg-filter`, content verified byte-identical; the previously pushed M1 history turned out to already be trailer-free. M2 then merged to `main` as **PR #7** — again a merge commit rather than squash (second occurrence; the recommendation to enforce squash/linear-history in branch protection stands, or D11 should be consciously amended to match actual practice). **CI on merged `main` verified green via the public checks API — first successful run of the Postgres + Redis service containers on GitHub runners**, closing the last unproven claim from the M2 verification. Dependabot queue grew to five branches (ESLint 10, TypeScript 6, commitlint majors ×2, actions updates). Roadmap/dev-log/handoff updated to the merged state.
+
 ## Standing outcomes of this day
 
 1. Product locked: CI reliability platform (flaky tests) for GitHub Actions.

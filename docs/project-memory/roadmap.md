@@ -12,11 +12,11 @@
 
 Monorepo (pnpm + Turborepo), engineering standards (ESLint/Prettier/commitlint/EditorConfig), GitHub Flow + Conventional Commits, CI skeleton (quality + commitlint jobs, SHA-pinned actions), dev environment (compose: pgvector Postgres 17 + Redis 7 AOF, loopback-bound), governance (README/LICENSE/CONTRIBUTING/SECURITY/CoC/CODEOWNERS/issue forms/PR template/Dependabot), ADR-0001/0002, doctor script, project memory docs. Passed a formal readiness review after remediating 5 blockers. Details: [development-log.md](../development-log.md).
 
-### Milestone 1 — GitHub App + webhook ingestion skeleton ✅ (2026-07-18, awaiting founder review/PR)
+### Milestone 1 — GitHub App + webhook ingestion skeleton ✅ (2026-07-18, merged to main in PR #6)
 
 `apps/api` (Fastify 5) + `packages/db` (Drizzle): HMAC-verified (constant-time, raw bytes, verify-before-parse), delivery-GUID-idempotent `POST /webhooks/github` persisting raw payloads append-only; `/healthz`; boot-time config validation; ADR-0003…0006; CI gates activated with a real Postgres service container; end-to-end verified through a live smee.io tunnel. Founder-trimmed scope honored: no queue enqueue, no installation-token client, no App private key (all M2). GitHub App creation is a documented founder step ([github-app-setup.md](../github-app-setup.md)). Details: [development-log.md](../development-log.md).
 
-### Milestone 2 — Artifact pipeline: queue + worker + JUnit parsing ✅ (2026-07-18, awaiting founder review/PR)
+### Milestone 2 — Artifact pipeline: queue + worker + JUnit parsing ✅ (2026-07-18, merged to main in PR #7)
 
 `@devflow/queue` (BullMQ contract: dispatch-not-store, retry policy, jobId dedup) + API producer (enqueue after persist, redelivery-as-repair) + normalized schema (`repositories`, `workflow_runs` keyed `(github_run_id, run_attempt)`, `run_artifacts` diagnostics, `test_results` with replace-per-run idempotency) + `@devflow/worker` (bounded concurrency, permanent-vs-transient failure taxonomy, DLQ = BullMQ failed set) + in-house GitHub App client (hand-rolled RS256 JWT, single-flight token cache) + streaming JUnit parser (saxes, fixture corpus, size caps). ADR-0007/0008/0009. 51 tests + live local e2e (stubbed GitHub): signed webhook → 8 correctly classified result rows; redelivery converges. **Deviations (founder-approved):** workspace-tenancy ADR deferred to M4 (installation is tenancy root; seam recorded in ADR-0008); partitioning deferred with explicit triggers; rate-limit handling reactive-only. Real-GitHub verification = founder step ([github-app-setup.md](../github-app-setup.md)). Details: [development-log.md](../development-log.md).
 

@@ -121,6 +121,7 @@ Webhook ingestion at scale (ACK-fast, at-least-once, idempotency keys, out-of-or
 
 - **Milestone 1: complete and locally verified; awaiting founder review** + push/PR (CI on GitHub) + GitHub App creation (manual, guided) + real-GitHub delivery check.
 - **Next milestone:** M2 — artifact pipeline (BullMQ queue, worker, installation-token client, JUnit parsing, normalized schema). Design step first, per milestone workflow.
+- _Post-merge addendum: merged to `main` in PR #6 (merge commit); first GitHub CI run green — the M0 review's withheld confidence closed._
 
 ---
 
@@ -177,6 +178,7 @@ Queue design (dispatch-vs-store, at-least-once + DB-level idempotency, DLQ, why 
 
 - **Milestone 2: complete and locally verified end-to-end; awaiting founder review.** Real-GitHub verification (App + private key + workflow with a JUnit artifact) is a founder step documented in [github-app-setup.md](github-app-setup.md).
 - **Next milestone:** M3 — flakiness detection engine + PR annotation (the killer feature; the detection-algorithm ADR is the most important of the project). Design step first.
+- _Post-merge addendum: merged to `main` in PR #7 (merge commit, six commits preserved; `Co-Authored-By` trailers stripped pre-push at the founder's direction). CI on `main` green including the first run of the Postgres + Redis service containers — verified via the checks API, closing the "unproven on GitHub runners" caveat._
 
 ---
 

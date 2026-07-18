@@ -21,6 +21,7 @@ Before an interview, pick the 3–4 stories most relevant to the company (integr
 - **Concepts:** app-level JWT → short-lived installation tokens, granular permissions, per-installation rate limits (~5k/h each vs one shared pool), webhook subscription as part of the app model.
 - **Unlocks:** OAuth flows generally, token lifecycle management, rate-limit-aware client design (backoff + jitter, reading rate-limit headers).
 - **How to tell it:** "I needed to act on repos I don't own, with the least privilege the platform allows, without burning one shared rate limit — that's exactly what GitHub Apps are for."
+- **Detail worth telling (M2, true war story):** the JWT was hand-rolled on `node:crypto` (ADR-0009) and that's how we learned GitHub issues **PKCS#1** private keys ("BEGIN RSA PRIVATE KEY") that pure-JS JWT libraries refuse to import — plus iat backdating for clock drift and a promise-valued token cache so concurrent jobs share one in-flight exchange. Small, verifiable, proves the dance was actually implemented, not delegated to Octokit.
 
 ## 3. Queue + workers (M2)
 
