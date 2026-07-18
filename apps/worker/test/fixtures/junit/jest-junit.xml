@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="5" failures="1" errors="0" time="3.582">
+  <testsuite name="auth" errors="0" failures="1" skipped="0" timestamp="2026-07-18T09:14:02" time="2.113" tests="3">
+    <testcase classname="auth verifies signatures" name="accepts a valid signature" time="0.041"/>
+    <testcase classname="auth verifies signatures" name="rejects a tampered body" time="0.012"/>
+    <testcase classname="auth verifies signatures" name="refreshes expired tokens" time="1.902">
+      <failure message="expected 401 to be 200"><![CDATA[Error: expected 401 to be 200
+    at Object.<anonymous> (src/auth/token.test.ts:88:19)
+    at Promise.then.completed (node_modules/jest-circus/build/utils.js:298:28)]]></failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="flaky-suite" errors="0" failures="0" skipped="0" timestamp="2026-07-18T09:14:04" time="1.469" tests="2">
+    <testcase classname="retries" name="retry works [attempt 1]" time="0.700"/>
+    <testcase classname="retries" name="retry works [attempt 1]" time="0.769"/>
+  </testsuite>
+</testsuites>

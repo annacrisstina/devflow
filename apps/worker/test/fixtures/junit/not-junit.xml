@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage line-rate="0.83" branch-rate="0.71" version="1.9">
+  <packages>
+    <package name="devflow" line-rate="0.83"/>
+  </packages>
+</coverage>

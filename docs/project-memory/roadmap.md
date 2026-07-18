@@ -16,14 +16,11 @@ Monorepo (pnpm + Turborepo), engineering standards (ESLint/Prettier/commitlint/E
 
 `apps/api` (Fastify 5) + `packages/db` (Drizzle): HMAC-verified (constant-time, raw bytes, verify-before-parse), delivery-GUID-idempotent `POST /webhooks/github` persisting raw payloads append-only; `/healthz`; boot-time config validation; ADR-0003…0006; CI gates activated with a real Postgres service container; end-to-end verified through a live smee.io tunnel. Founder-trimmed scope honored: no queue enqueue, no installation-token client, no App private key (all M2). GitHub App creation is a documented founder step ([github-app-setup.md](../github-app-setup.md)). Details: [development-log.md](../development-log.md).
 
+### Milestone 2 — Artifact pipeline: queue + worker + JUnit parsing ✅ (2026-07-18, awaiting founder review/PR)
+
+`@devflow/queue` (BullMQ contract: dispatch-not-store, retry policy, jobId dedup) + API producer (enqueue after persist, redelivery-as-repair) + normalized schema (`repositories`, `workflow_runs` keyed `(github_run_id, run_attempt)`, `run_artifacts` diagnostics, `test_results` with replace-per-run idempotency) + `@devflow/worker` (bounded concurrency, permanent-vs-transient failure taxonomy, DLQ = BullMQ failed set) + in-house GitHub App client (hand-rolled RS256 JWT, single-flight token cache) + streaming JUnit parser (saxes, fixture corpus, size caps). ADR-0007/0008/0009. 51 tests + live local e2e (stubbed GitHub): signed webhook → 8 correctly classified result rows; redelivery converges. **Deviations (founder-approved):** workspace-tenancy ADR deferred to M4 (installation is tenancy root; seam recorded in ADR-0008); partitioning deferred with explicit triggers; rate-limit handling reactive-only. Real-GitHub verification = founder step ([github-app-setup.md](../github-app-setup.md)). Details: [development-log.md](../development-log.md).
+
 ## Future milestones (order is load-bearing)
-
-### Milestone 2 — Artifact pipeline: queue + workers + JUnit parsing
-
-**Goal:** from `workflow_run.completed` webhook to normalized test results in Postgres.
-**Scope:** `apps/worker`, BullMQ queues, installation-token client (JWT → token exchange, caching, rate-limit-aware), artifact download + unzip + JUnit XML parsing (streaming, fixture-tested), normalized schema for runs/suites/test results, retries + DLQ, structured logging with correlation IDs across api→queue→worker.
-**ADRs due:** BullMQ choice; test-results data model (incl. partitioning strategy); workspace multi-tenancy schema.
-**Depends on:** M1 (raw events exist).
 
 ### Milestone 3 — Flakiness detection engine + PR annotation
 

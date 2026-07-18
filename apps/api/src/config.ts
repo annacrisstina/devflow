@@ -12,6 +12,7 @@ export type ApiConfig = {
   port: number;
   logLevel: string;
   databaseUrl: string;
+  redisUrl: string;
   webhookSecret: string;
 };
 
@@ -20,6 +21,7 @@ type RawEnv = {
   DEVFLOW_API_PORT: number;
   DEVFLOW_LOG_LEVEL: string;
   DEVFLOW_DATABASE_URL: string;
+  DEVFLOW_REDIS_URL: string;
   DEVFLOW_GITHUB_WEBHOOK_SECRET: string;
 };
 
@@ -44,6 +46,7 @@ const schema = {
       type: 'string',
       default: 'postgresql://devflow:devflow_local@127.0.0.1:5432/devflow',
     },
+    DEVFLOW_REDIS_URL: { type: 'string', default: 'redis://127.0.0.1:6379' },
   },
 } as const;
 
@@ -60,6 +63,7 @@ export function loadConfig(): ApiConfig {
     port: env.DEVFLOW_API_PORT,
     logLevel: env.DEVFLOW_LOG_LEVEL,
     databaseUrl: env.DEVFLOW_DATABASE_URL,
+    redisUrl: env.DEVFLOW_REDIS_URL,
     webhookSecret: env.DEVFLOW_GITHUB_WEBHOOK_SECRET,
   };
 }

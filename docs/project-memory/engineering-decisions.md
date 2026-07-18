@@ -50,13 +50,13 @@
 - **Motivation:** correct security model (permissions scoped per installation, short-lived tokens), per-installation rate limits (~5,000 req/h each rather than one shared pool), and it is the professional pattern every serious integration uses. The OAuth-App-vs-GitHub-App distinction is deliberate interview material.
 - **Trade-offs accepted:** more complex auth dance (JWT signing, token exchange, token caching) — that complexity is the point.
 
-## D7. Queue: BullMQ on Redis — Committed (ADR due in M1/M2)
+## D7. Queue: BullMQ on Redis — Locked (ADR-0007)
 
 - **Decision:** BullMQ for background jobs (artifact download, JUnit parsing, scoring), Redis as the broker. Dev Redis runs with AOF persistence so queued jobs survive container restarts (silent job loss in dev hides real bugs).
 - **Motivation:** Redis is already in the stack for pub/sub and caching; BullMQ provides retries with backoff, dead-letter handling, concurrency control and rate limiting without introducing a second broker technology.
 - **Alternatives:** Kafka/Redpanda (rejected: operationally heavy for a solo self-hostable product; a _documented consideration_ is better portfolio material than an _unjustified deployment_); Postgres-based queue e.g. pg-boss/SKIP LOCKED (a respectable alternative — rejected to keep queue semantics and observability first-class, but worth acknowledging in the ADR); RabbitMQ (rejected: another service to operate with no decisive advantage here).
 
-## D8. Multi-tenancy: workspace-based — Committed (design will be validated in the data-model milestone)
+## D8. Multi-tenancy: workspace-based — Committed (ADR ships with the M4 implementation; interim seam recorded in ADR-0008: installation is the tenancy root until workspaces exist)
 
 - **Decision:** workspace = tenant (Notion/Linear style). Users can belong to multiple workspaces; a workspace owns GitHub App installations and everything downstream (repos, runs, results).
 - **Motivation:** covers both the solo developer (personal workspace) and team/organization use without schema surgery later.
@@ -112,5 +112,8 @@
 | [0004](../adr/0004-fastify-for-the-http-api.md)               | Fastify for the HTTP API        | Accepted | JSON-Schema validation at the boundary, pino built in, `buildApp()` factory for port-less tests. Rejected: NestJS, Express, Next API routes, Hono.                                                              |
 | [0005](../adr/0005-raw-first-idempotent-webhook-ingestion.md) | Raw-first idempotent ingestion  | Accepted | Authenticate raw bytes → parse → append-only persist (atomic `ON CONFLICT`) → fast ACK; 500 on db-down (redelivery recovers). GUID dedup ≠ semantic dedup (M2).                                                 |
 | [0006](../adr/0006-github-app-not-oauth-app.md)               | GitHub App, not OAuth App       | Accepted | Installation-scoped short-lived tokens, granular permissions, per-installation rate limits, native webhooks. Rejected: PAT, OAuth App.                                                                          |
+| [0007](../adr/0007-bullmq-on-redis-for-background-jobs.md)    | BullMQ on Redis                 | Accepted | Queue = dispatch, never store (Redis loss loses scheduling, not data); jobId dedup best-effort; failed set = DLQ. Rejected: Kafka, pg-boss, RabbitMQ, no-queue.                                                 |
+| [0008](../adr/0008-normalized-test-results-data-model.md)     | Test-results data model         | Accepted | Attempts as rows (M3 signal); replace-per-run idempotency (no unique key — parameterized tests); installation = tenancy root until M4; partitioning deferred with triggers.                                     |
+| [0009](../adr/0009-in-house-github-app-client.md)             | In-house GitHub App client      | Accepted | Hand-rolled RS256 JWT (PKCS#1 gotcha), single-flight token cache, permanent-vs-transient classification. Rejected: Octokit, jose, Probot.                                                                       |
 
-ADRs expected in upcoming milestones: BullMQ queue choice, test-results data model + workspace multi-tenancy schema (M2), detection algorithm design (M3).
+ADRs expected in upcoming milestones: detection algorithm design (M3 — the most important ADR of the project), workspace multi-tenancy schema (M4), auth (M4).

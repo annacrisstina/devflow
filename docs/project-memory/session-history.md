@@ -108,6 +108,23 @@ The review document covered scope (in/out with landing milestones for everything
 - **Deviation, recorded:** no git credentials available to the engineer → per-component PRs impossible; components landed as sequential commits on `feat/db-webhook-events`, founder to push and open the PR.
 - Incidents worth remembering: `URL.pathname` vs space-containing repo path (fixed with `fileURLToPath`); a stale server holding port 3001 made a dead process look healthy (check port ownership before trusting curl); smee re-serializes JSON so tunnel HMAC only verifies for canonical-compact bytes; `corepack enable --install-directory ~/.local/bin` solves the sudo problem and is required because Turbo spawns `pnpm` from PATH.
 
+## Session of 2026-07-18 (later) — Milestone 2 design and implementation
+
+M1 was merged to `main` as PR #6 — with a **merge commit**, not the prescribed squash (flagged to the founder: branch-protection settings should enforce squash/linear history if that discipline stands). Dependabot opened ESLint 10 and TypeScript 6 major PRs (awaiting individual review per D13).
+
+**Design:** a full M2 architecture review (goals/scope, components, flow, packages, schema, worker design, GitHub integration, JUnit flow, order, risks) was approved with a founder minimalism directive — functional pipeline, minimum required complexity, no optional optimizations — and six explicit decisions ratified: tenancy deferral to M4, no partitioning (documented triggers), in-house GitHub client over Octokit, scan-all-artifacts discovery, replace-per-run idempotency, and the housekeeping notes.
+
+**Implementation** (six components, sequential commits on `feat/artifact-pipeline`):
+
+1. `@devflow/queue` + API producer (enqueue-after-persist, duplicate path re-enqueues → redelivery repairs lost jobs) + Redis in CI + ADR-0007.
+2. Normalized schema (4 tables, migration 0001) + ADR-0008.
+3. Worker skeleton: load-event → normalize-run with convergent upserts; permanent-vs-transient failure taxonomy; BullMQ round-trip tested.
+4. In-house GitHub client + ADR-0009 — hand-rolling the JWT surfaced the **PKCS#1 gotcha** (GitHub's keys aren't PKCS#8; `node:crypto` accepts both, jose doesn't).
+5. Streaming JUnit parser (saxes) + zip scan (yauzl, size caps) + replace-per-run persistence; fixture corpus (jest/pytest/surefire/nested/parameterized/not-junit/malformed).
+6. **Local full-stack e2e:** API + Redis + worker + Postgres + stub GitHub API serving a fixture-built zip — signed webhook → 202 → 8 result rows (6/1/1 by status, matching fixtures) → redelivery converged. 51 tests total, `pnpm verify` green throughout.
+
+Notable incidents: pnpm strictness caught a phantom `ioredis` type import (the M0 tooling argument, vindicated); one commit briefly landed on a red verify because `;` chained what `&&` should have gated (amended, lesson logged); Node's global fetch ignores npm-undici's MockAgent (hence injectable `fetchImpl`).
+
 ## Standing outcomes of this day
 
 1. Product locked: CI reliability platform (flaky tests) for GitHub Actions.

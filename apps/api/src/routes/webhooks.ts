@@ -1,4 +1,6 @@
 import { webhookEvents } from '@devflow/db/schema/webhook-events';
+import { enqueueProcessWorkflowRun } from '@devflow/queue/ingest';
+import { eq } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { verifyWebhookSignature } from '../webhooks/verify-signature.js';
@@ -75,6 +77,30 @@ export const webhookRoutes: FastifyPluginAsync<WebhookRoutesOptions> = async (ap
       })
       .onConflictDoNothing({ target: webhookEvents.deliveryId })
       .returning({ id: webhookEvents.id });
+
+    // Enqueue on the duplicate path too: jobId dedup collapses it while the
+    // job is queued, and a redelivery becomes the repair mechanism for a job
+    // lost after the raw event was persisted (e.g. Redis down at ACK time).
+    const eventId =
+      inserted[0]?.id ??
+      (
+        await app.db
+          .select({ id: webhookEvents.id })
+          .from(webhookEvents)
+          .where(eq(webhookEvents.deliveryId, deliveryId))
+      )[0]?.id;
+
+    if (
+      eventId !== undefined &&
+      eventType === 'workflow_run' &&
+      payloadAction(payload) === 'completed'
+    ) {
+      await enqueueProcessWorkflowRun(app.ingestQueue, {
+        webhookEventId: eventId.toString(),
+        deliveryId,
+      });
+      log.info({ eventId: eventId.toString() }, 'processing job enqueued');
+    }
 
     if (inserted.length === 0) {
       log.info('duplicate webhook delivery absorbed');

@@ -12,6 +12,7 @@ function testConfig(overrides: Partial<ApiConfig> = {}): ApiConfig {
     port: 0,
     logLevel: 'silent',
     databaseUrl: DATABASE_URL,
+    redisUrl: process.env.DEVFLOW_REDIS_URL ?? 'redis://127.0.0.1:6379',
     webhookSecret: 'test-webhook-secret',
     ...overrides,
   };

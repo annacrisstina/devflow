@@ -1,9 +1,10 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 
+import { repositories, runArtifacts, testResults, workflowRuns } from './schema/runs.js';
 import { webhookEvents } from './schema/webhook-events.js';
 
-const schema = { webhookEvents };
+const schema = { webhookEvents, repositories, workflowRuns, runArtifacts, testResults };
 
 export type Db = ReturnType<typeof drizzle<typeof schema>>;
 

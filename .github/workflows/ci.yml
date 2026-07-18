@@ -33,8 +33,18 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     env:
       DEVFLOW_DATABASE_URL: postgresql://devflow:devflow_local@127.0.0.1:5432/devflow
+      DEVFLOW_REDIS_URL: redis://127.0.0.1:6379
     steps:
       # Actions are pinned to full commit SHAs: mutable tags are a supply-chain
       # vector (see the tj-actions/changed-files incident). Dependabot keeps them fresh.
