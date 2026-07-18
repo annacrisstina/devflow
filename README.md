@@ -5,7 +5,7 @@
 [![CI](https://github.com/annacrisstina/devflow/actions/workflows/ci.yml/badge.svg)](https://github.com/annacrisstina/devflow/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Status: early development.** The repository foundation is in place; the first functional milestone (GitHub webhook ingestion) is in progress. Nothing here is usable yet — watch the repo if you want to follow along.
+**Status: early development.** The core pipeline works end to end: webhook ingestion → artifact parsing → deterministic flakiness scoring → advisory PR check runs (milestones 0–3). No UI yet (dashboard and quarantine workflow are next) — watch the repo if you want to follow along.
 
 ## The problem
 
