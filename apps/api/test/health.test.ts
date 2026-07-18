@@ -12,6 +12,7 @@ function testConfig(overrides: Partial<ApiConfig> = {}): ApiConfig {
     port: 0,
     logLevel: 'silent',
     databaseUrl: DATABASE_URL,
+    webhookSecret: 'test-webhook-secret',
     ...overrides,
   };
 }

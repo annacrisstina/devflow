@@ -3,6 +3,7 @@ import { fastify, type FastifyInstance } from 'fastify';
 
 import type { ApiConfig } from './config.js';
 import { healthRoutes } from './routes/health.js';
+import { webhookRoutes } from './routes/webhooks.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -28,6 +29,7 @@ export async function buildApp(config: ApiConfig): Promise<FastifyInstance> {
   });
 
   await app.register(healthRoutes);
+  await app.register(webhookRoutes, { webhookSecret: config.webhookSecret });
 
   return app;
 }

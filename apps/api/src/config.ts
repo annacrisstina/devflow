@@ -12,6 +12,7 @@ export type ApiConfig = {
   port: number;
   logLevel: string;
   databaseUrl: string;
+  webhookSecret: string;
 };
 
 type RawEnv = {
@@ -19,11 +20,16 @@ type RawEnv = {
   DEVFLOW_API_PORT: number;
   DEVFLOW_LOG_LEVEL: string;
   DEVFLOW_DATABASE_URL: string;
+  DEVFLOW_GITHUB_WEBHOOK_SECRET: string;
 };
 
 const schema = {
   type: 'object',
+  // No default for the webhook secret, ever: a guessable default would turn
+  // HMAC verification into theater. Boot fails loudly without it.
+  required: ['DEVFLOW_GITHUB_WEBHOOK_SECRET'],
   properties: {
+    DEVFLOW_GITHUB_WEBHOOK_SECRET: { type: 'string', minLength: 1 },
     // Loopback by default: exposing the dev API to the network must be an
     // explicit choice (compose-based self-hosting overrides this in M6).
     DEVFLOW_API_HOST: { type: 'string', default: '127.0.0.1' },
@@ -54,5 +60,6 @@ export function loadConfig(): ApiConfig {
     port: env.DEVFLOW_API_PORT,
     logLevel: env.DEVFLOW_LOG_LEVEL,
     databaseUrl: env.DEVFLOW_DATABASE_URL,
+    webhookSecret: env.DEVFLOW_GITHUB_WEBHOOK_SECRET,
   };
 }
