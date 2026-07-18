@@ -6,7 +6,7 @@ const DEFAULT_LOCAL_URL = 'postgresql://devflow:devflow_local@127.0.0.1:5432/dev
 
 export default defineConfig({
   dialect: 'postgresql',
-  schema: './src/schema/webhook-events.ts',
+  schema: './src/schema',
   out: './migrations',
   dbCredentials: {
     url: process.env.DEVFLOW_DATABASE_URL ?? DEFAULT_LOCAL_URL,

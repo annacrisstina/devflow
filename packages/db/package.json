@@ -13,6 +13,10 @@
     "./schema/webhook-events": {
       "types": "./dist/schema/webhook-events.d.ts",
       "default": "./dist/schema/webhook-events.js"
+    },
+    "./schema/runs": {
+      "types": "./dist/schema/runs.d.ts",
+      "default": "./dist/schema/runs.js"
     }
   },
   "files": [
