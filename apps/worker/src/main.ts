@@ -2,7 +2,9 @@ import { createDbClient } from '@devflow/db/client';
 import { createRedisConnection } from '@devflow/queue/connection';
 import { pino } from 'pino';
 
+import { createAnnotationStage } from './annotation/annotation-stage.js';
 import { loadConfig } from './config.js';
+import { createDetectionStage } from './detection/detection-stage.js';
 import { createGitHubClient } from './github/client.js';
 import { createArtifactStage } from './pipeline/artifact-stage.js';
 import { createIngestWorker } from './worker.js';
@@ -23,9 +25,11 @@ const artifactStage = createArtifactStage({
   maxArtifactBytes: config.maxArtifactBytes,
   maxXmlEntryBytes: config.maxXmlEntryBytes,
 });
+const detectionStage = createDetectionStage({ db: dbClient.db, detection: config.detection });
+const annotationStage = createAnnotationStage({ db: dbClient.db, github });
 
 const worker = createIngestWorker(
-  { db: dbClient.db, log, artifactStage },
+  { db: dbClient.db, log, artifactStage, detectionStage, annotationStage },
   connection,
   config.concurrency,
   log,

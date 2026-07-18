@@ -29,11 +29,12 @@ GitHub → Settings → Developer settings → GitHub Apps → **New GitHub App*
 | Webhook URL                             | the smee channel URL from step 2                                             |
 | Webhook secret                          | the secret from step 1                                                       |
 | Permissions → Repository → **Actions**  | Read-only                                                                    |
+| Permissions → Repository → **Checks**   | Read and write (M3+ — PR annotation, ADR-0011)                               |
 | Permissions → Repository → **Metadata** | Read-only (mandatory anyway)                                                 |
 | Subscribe to events                     | **Workflow run**                                                             |
 | Where can this app be installed?        | Only on this account                                                         |
 
-Everything else stays off. Least privilege is deliberate: M1 only receives webhooks. Checks: write arrives in M3 (PR annotation), and installers will be asked to re-approve then — that friction is the honest cost of not asking for permissions before needing them. `installation` / `installation_repositories` lifecycle events are delivered to apps automatically, no subscription needed.
+Everything else stays off. Least privilege is deliberate: that friction of adding permissions late is the honest cost of not asking for them before needing them. **If your App predates M3:** add Checks: read-and-write on the App's Permissions & events page, then approve the permission request on each installation (Settings → Installations) — until approved, annotation jobs fail with 403 and retry into the DLQ while ingestion and scoring continue unaffected (ADR-0011). `installation` / `installation_repositories` lifecycle events are delivered to apps automatically, no subscription needed.
 
 **Private key (needed from M2 on):** on the App's settings page, generate a private key — GitHub downloads a PKCS#1 PEM file. It is the system's highest-value secret: never enters the repo, lives only in `.env`, base64-encoded:
 

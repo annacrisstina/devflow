@@ -125,6 +125,24 @@ M1 was merged to `main` as PR #6 — with a **merge commit**, not the prescribed
 
 Notable incidents: pnpm strictness caught a phantom `ioredis` type import (the M0 tooling argument, vindicated); one commit briefly landed on a red verify because `;` chained what `&&` should have gated (amended, lesson logged); Node's global fetch ignores npm-undici's MockAgent (hence injectable `fetchImpl`).
 
+## M2 merge + post-merge closeout (2026-07-18)
+
+Before pushing, the founder directed removal of all `Co-Authored-By`/AI-attribution trailers from the unpushed history — done via `git filter-branch --msg-filter`, content verified byte-identical; the previously pushed M1 history turned out to already be trailer-free. M2 then merged to `main` as **PR #7** — again a merge commit rather than squash (second occurrence; the recommendation to enforce squash/linear-history in branch protection stands, or D11 should be consciously amended to match actual practice). **CI on merged `main` verified green via the public checks API — first successful run of the Postgres + Redis service containers on GitHub runners**, closing the last unproven claim from the M2 verification. Dependabot queue grew to five branches (ESLint 10, TypeScript 6, commitlint majors ×2, actions updates). Roadmap/dev-log/handoff updated to the merged state.
+
+## Session of 2026-07-18 (later still) — Milestone 3 design and implementation
+
+_The session was interrupted mid-implementation and resumed from repository state alone (the handoff + uncommitted work on `feat/flakiness-detection`) — the first real test of the memory system for an in-flight milestone, passed._
+
+**Design:** ADR-0010 (flakiness detection — the ADR the product exists for) fixed the model before implementation: two unequal evidence signals (same-commit divergence 1.0, default-branch transition 0.25), exponential decay, saturating score, reference arithmetic pinned in unit tests, always-failing-scores-zero as a structural property. ADR-0011 fixed delivery: neutral-only check run, silence when nothing to say, PATCH idempotency via `flake_check_run_id`.
+
+**Implementation** (on `feat/flakiness-detection`): migration 0002 (`test_flake_scores`, `repositories.default_branch`, `workflow_runs.flake_check_run_id`); pure `score.ts` + event-driven `detection-stage.ts` (recompute set = failed-now ∪ non-healthy-present, 90-day bounded reads, worst-status-per-run aggregation); annotation stage + `createCheckRun`/`updateCheckRun` on the in-house client; `DEVFLOW_FLAKE_*` config with cross-field boot validation; pipeline gating (detection only after results persist; annotation failures never fail ingestion).
+
+**Verification:** 72 tests green (up from 51), full `pnpm verify`, and a scripted live e2e (API + worker + Postgres + Redis + stub GitHub): three signed deliveries forming a same-commit divergence → score 0.3323/`suspected` matching the ADR math exactly → one neutral check run with the plain-language evidence table; redelivery converged without duplicating the check.
+
+**Recorded for the founder:** installation-time backfill (roadmap M3 scope) deliberately deferred pending its own design pass; the jobId-dedup redelivery nuance (completed jobs don't reprocess while retained — M2-documented behavior observed live); ADR-0011 was authored this session and deserves explicit founder review before the PR merges.
+
+Notable incidents: drizzle raw-SQL selections bypass column mapping (timestamp came back as a string — caught by integration tests on real Postgres); generation tooling emitted literal NUL bytes where `\u0000` escapes were intended (caught with `cat -A`).
+
 ## Standing outcomes of this day
 
 1. Product locked: CI reliability platform (flaky tests) for GitHub Actions.

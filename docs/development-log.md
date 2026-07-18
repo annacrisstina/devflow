@@ -121,6 +121,7 @@ Webhook ingestion at scale (ACK-fast, at-least-once, idempotency keys, out-of-or
 
 - **Milestone 1: complete and locally verified; awaiting founder review** + push/PR (CI on GitHub) + GitHub App creation (manual, guided) + real-GitHub delivery check.
 - **Next milestone:** M2 — artifact pipeline (BullMQ queue, worker, installation-token client, JUnit parsing, normalized schema). Design step first, per milestone workflow.
+- _Post-merge addendum: merged to `main` in PR #6 (merge commit); first GitHub CI run green — the M0 review's withheld confidence closed._
 
 ---
 
@@ -177,7 +178,64 @@ Queue design (dispatch-vs-store, at-least-once + DB-level idempotency, DLQ, why 
 
 - **Milestone 2: complete and locally verified end-to-end; awaiting founder review.** Real-GitHub verification (App + private key + workflow with a JUnit artifact) is a founder step documented in [github-app-setup.md](github-app-setup.md).
 - **Next milestone:** M3 — flakiness detection engine + PR annotation (the killer feature; the detection-algorithm ADR is the most important of the project). Design step first.
+- _Post-merge addendum: merged to `main` in PR #7 (merge commit, six commits preserved; `Co-Authored-By` trailers stripped pre-push at the founder's direction). CI on `main` green including the first run of the Postgres + Redis service containers — verified via the checks API, closing the "unproven on GitHub runners" caveat._
 
 ---
 
-_(Next entry: Milestone 3, appended when completed.)_
+## Milestone 3 — Flakiness detection engine + PR annotation
+
+- **Date:** 2026-07-18
+- **Milestone:** 3
+- **Goal:** the killer feature — from persisted test results to a deterministic flakiness verdict, delivered into the PR as an advisory check: "this failure is a known flake, not you."
+
+### Completed work
+
+- **ADR-0010 (the most important ADR of the project):** deterministic two-signal evidence model. Same-commit divergence (weight 1.0 — the code didn't change, the outcome did) + default-branch cross-commit transitions (weight 0.25 — weak evidence until file-relatedness lands post-MVP). Exponential decay (half-life 14d), saturating score `e/(e+K)`, verdicts flaky ≥ 0.5 / suspected ≥ 0.25. Structural properties, unit-tested verbatim: an always-failing test scores **zero** (broken ≠ flaky); absence in a partial re-run is **not** a pass; cold start produces no verdicts.
+- `detection/score.ts`: pure scoring function (history in, assessment out — all I/O elsewhere); 12 unit tests pinning the ADR's reference arithmetic.
+- `detection/detection-stage.ts`: event-driven incremental recompute after each run's results persist. Recompute set = (identities failing in this run) ∪ (identities in this run holding a non-healthy score) — the first raises scores, the second decays recovered tests back. Bounded 90-day history read; worst-status-per-run aggregation for parameterized repeats; upsert into `test_flake_scores` (evidence counts stored so every verdict is explainable without recomputation).
+- `packages/db` migration 0002: `test_flake_scores` (unique per identity, repo+verdict index for the M4 dashboard shape), `repositories.default_branch` (the transition gate; a payload omitting it never clobbers a known value), `workflow_runs.flake_check_run_id` (annotation idempotency).
+- **ADR-0011 + annotation stage:** advisory check run (`DevFlow flake report`) on the run's head sha — always `neutral` (structurally unable to block a merge), silent when no failing test carries a non-healthy verdict, POST-once/PATCH-thereafter via `flake_check_run_id`, PATCH-to-all-clear when a reprocess stops flagging. Summary decomposes evidence in plain language ("1 same-commit pass/fail divergence"), capped at 20 tests with stated overflow.
+- GitHub client grew `createCheckRun`/`updateCheckRun` (same taxonomy: 404/410 permanent, else transient); **Checks: write** permission documented in github-app-setup.md including the re-approval path for pre-M3 Apps.
+- Worker config: `DEVFLOW_FLAKE_*` knobs (half-life, saturation K, both thresholds) with boot-time validation including the cross-field suspect < flaky constraint; defaults deliberately under-flag.
+- Pipeline wiring: artifact stage now reports `succeeded | no_artifacts`; detection runs only when results persisted; annotation failures never mark ingestion failed (results and scores are already durable).
+
+### Verification (all run, not asserted)
+
+72 automated tests green across the workspace (was 51): detection scoring units, detection-stage integration on real Postgres (divergence scoring, decay-to-healthy, parameterized aggregation, convergent recompute, silence for untracked passing tests), annotation-stage integration (create/PATCH/all-clear/silence), check-run client tests, default-branch capture. Full `pnpm verify` green. **Live local e2e:** real API + worker + Postgres + Redis + stub GitHub API — three signed deliveries building a same-commit divergence (fail@sha-A → pass@sha-A → fail@sha-B) produced score 0.3323 / verdict `suspected` / 1 divergence + 0 transitions (matching the ADR arithmetic exactly) and one neutral check run titled "1 suspected-flaky among 1 failing test" with the evidence table; `flake_check_run_id` persisted; redelivered GUID → 200 duplicate, state converged (one score row, one check).
+
+### ADRs created
+
+- ADR-0010: Flakiness detection algorithm (rejected: ML/statistical classifiers — D14 plus no training data at MVP scale; failure-rate thresholds — conflate broken with flaky; windowed counts — cliff effects; Bayesian — same arbitrariness, harder to narrate).
+- ADR-0011: Advisory-only Checks API annotation (rejected: PR comments — noisy and blame-flavored; commit status — no rich output; failing/action_required conclusions — a scoring error must never become a workflow outage).
+
+### Deviations (recorded for founder review)
+
+- **Installation-time backfill (roadmap M3 scope) not implemented.** It needs its own design pass: listing historical workflow runs via the API, artifact expiry limiting how far back results exist, and rate-budget for a burst of backfill jobs. Detection works from the first ingested run and improves as dogfooding accumulates history; proposal is to treat backfill as a separate founder-scoped item (M3.5 or folded into M6 demo tooling) rather than rushing an undesigned burst-write path.
+- Redelivery-of-a-completed-job does not reprocess while the completed job is retained (BullMQ jobId dedup, `removeOnComplete: {count: 1000}`) — existing documented M2 behavior, observed live in the e2e; noted here because the annotation PATCH path therefore triggers on genuine reprocessing (retry after transient failure), not on every redelivery.
+
+### Lessons learned
+
+1. **The recompute set is an annotation-semantics decision, not just an optimization:** a fail→pass re-run does not immediately raise a score (the pass holds no verdict yet) — the divergence is picked up at the identity's _next failure_, which is exactly when a verdict is needed. Understanding why that's correct required walking the annotation flow, not the scoring math.
+2. **Raw SQL selections bypass drizzle's column mapping** — `sql<Date>` coalesce over two timestamp columns hands back a driver string, silently satisfying the type until `.getTime()` explodes. Integration tests on real Postgres caught it; unit tests never would have.
+3. Editor/tooling note: writing `\u0000` escapes through generation tooling can emit literal NUL bytes into source; `cat -A` before trusting a "string constant".
+4. **The stale-process lesson, third edition:** a leaked e2e worker (a `pkill` pattern that didn't match tsx's real argv — `cli.mjs src/main.ts`, not `tsx src/main.ts`) kept consuming the shared BullMQ queue with a dropped database, making an unrelated queue test fail via 15 s backoff retries — a genuinely flaky test, in the flaky-test-detection project. Verify process death from `ps` output, never from the absence of a pattern match; the fix restored the test from intermittent 20 s timeouts to a stable 375 ms.
+
+### Technical debt introduced (accepted, tracked)
+
+- Score upserts are per-identity inside a loop (fine at recompute-set sizes; batch if a pathological suite makes it hurt — measured first).
+- Stale non-healthy scores persist until the identity reappears (harmless in M3 — verdicts only surface on new failures; M4 dashboard applies decay-at-read).
+- A 403 from an unapproved Checks:write permission retries into the DLQ (indistinguishable from rate limiting by status alone) — accepted, documented in ADR-0011 and github-app-setup.md.
+
+### Interview topics covered by this milestone
+
+The detection model itself (evidence weighting, decay, saturation, false-positive asymmetry, why not ML — the project's core story), incremental recompute design, advisory-by-construction annotation (neutral conclusion as a structural guarantee), permission-growth UX of GitHub Apps. Details: [project-memory/interview-notes.md](project-memory/interview-notes.md) §4.
+
+### Status & next
+
+- **Milestone 3: complete, verified end-to-end locally; awaiting founder review + PR.** Branch `feat/flakiness-detection`; push/PR/merge are founder actions.
+- Real-GitHub verification (App with Checks:write on a live repo) remains the standing founder step — now it also starts producing real annotations.
+- **Next milestone:** M4 — dashboard + live feed + quarantine workflow (needs the workspace-tenancy and auth ADRs). Backfill decision pending (see deviations).
+
+---
+
+_(Next entry: Milestone 4, appended when completed.)_

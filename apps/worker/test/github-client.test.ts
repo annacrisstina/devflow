@@ -136,6 +136,49 @@ describe('createGitHubClient', () => {
     expect(error).not.toBeInstanceOf(PermanentJobError);
   });
 
+  it('creates a check run and returns its id', async () => {
+    const { client, pool } = stubbedClient();
+    interceptToken(pool);
+    let requestBody: Record<string, unknown> | null = null;
+    pool
+      .intercept({
+        path: '/repos/o/r/check-runs',
+        method: 'POST',
+        body: (b) => {
+          requestBody = JSON.parse(b) as Record<string, unknown>;
+          return true;
+        },
+      })
+      .reply(201, { id: 987654 });
+
+    const id = await client.createCheckRun(55n, 'o', 'r', 'abc123', {
+      name: 'DevFlow flake report',
+      conclusion: 'neutral',
+      output: { title: 't', summary: 's' },
+    });
+    expect(id).toBe(987654n);
+    expect(requestBody).toMatchObject({
+      name: 'DevFlow flake report',
+      head_sha: 'abc123',
+      status: 'completed',
+      conclusion: 'neutral',
+    });
+  });
+
+  it('updates an existing check run in place', async () => {
+    const { client, pool } = stubbedClient();
+    interceptToken(pool);
+    pool.intercept({ path: '/repos/o/r/check-runs/987654', method: 'PATCH' }).reply(200, {});
+
+    await expect(
+      client.updateCheckRun(55n, 'o', 'r', 987654n, {
+        name: 'DevFlow flake report',
+        conclusion: 'neutral',
+        output: { title: 't2', summary: 's2' },
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('downloads an artifact zip to a file', async () => {
     const { client, pool } = stubbedClient();
     interceptToken(pool);

@@ -4,11 +4,14 @@ import type { ProcessWorkflowRunJob } from '@devflow/queue/ingest';
 import { eq } from 'drizzle-orm';
 import type { Logger } from 'pino';
 
+import type { AnnotationStage } from './annotation/annotation-stage.js';
+import type { DetectionStage } from './detection/detection-stage.js';
 import { PermanentJobError } from './errors.js';
+import type { ArtifactStageOutcome } from './pipeline/artifact-stage.js';
 import { loadEvent } from './pipeline/load-event.js';
 import { normalizeRun, type NormalizedRun } from './pipeline/normalize-run.js';
 
-export type ArtifactStage = (run: NormalizedRun, log: Logger) => Promise<void>;
+export type ArtifactStage = (run: NormalizedRun, log: Logger) => Promise<ArtifactStageOutcome>;
 
 export type ProcessJobDeps = {
   db: Db;
@@ -18,6 +21,10 @@ export type ProcessJobDeps = {
    * plumbing is testable without GitHub; the real stage is wired in main.ts.
    */
   artifactStage: ArtifactStage;
+  /** Flake-score recompute (ADR-0010); runs only after results persisted. */
+  detectionStage: DetectionStage;
+  /** Advisory check-run write-back (ADR-0011); runs after detection. */
+  annotationStage: AnnotationStage;
 };
 
 /**
@@ -45,8 +52,9 @@ export async function processJob(deps: ProcessJobDeps, job: ProcessWorkflowRunJo
     'run normalized',
   );
 
+  let outcome: ArtifactStageOutcome;
   try {
-    await deps.artifactStage(run, log);
+    outcome = await deps.artifactStage(run, log);
   } catch (error) {
     if (error instanceof PermanentJobError) {
       await deps.db
@@ -54,6 +62,25 @@ export async function processJob(deps: ProcessJobDeps, job: ProcessWorkflowRunJo
         .set({ processingStatus: 'failed', processedAt: new Date() })
         .where(eq(workflowRuns.id, run.workflowRunId));
       log.warn({ reason: error.message }, 'artifact processing failed permanently');
+      return;
+    }
+    throw error;
+  }
+
+  // A run without artifacts changed no test history: nothing to reassess.
+  // Detection errors propagate as transient — the whole job is convergent
+  // under retry (upserts, replace-per-run, recompute-from-history).
+  if (outcome !== 'succeeded') return;
+  await deps.detectionStage(run, log);
+
+  // Results and scores are durable by now: a permanently failed annotation is
+  // absorbed (never marks ingestion failed), a transient one retries the
+  // convergent job (ADR-0011).
+  try {
+    await deps.annotationStage(run, log);
+  } catch (error) {
+    if (error instanceof PermanentJobError) {
+      log.warn({ reason: error.message }, 'flake annotation failed permanently');
       return;
     }
     throw error;

@@ -21,6 +21,7 @@ Before an interview, pick the 3–4 stories most relevant to the company (integr
 - **Concepts:** app-level JWT → short-lived installation tokens, granular permissions, per-installation rate limits (~5k/h each vs one shared pool), webhook subscription as part of the app model.
 - **Unlocks:** OAuth flows generally, token lifecycle management, rate-limit-aware client design (backoff + jitter, reading rate-limit headers).
 - **How to tell it:** "I needed to act on repos I don't own, with the least privilege the platform allows, without burning one shared rate limit — that's exactly what GitHub Apps are for."
+- **Detail worth telling (M2, true war story):** the JWT was hand-rolled on `node:crypto` (ADR-0009) and that's how we learned GitHub issues **PKCS#1** private keys ("BEGIN RSA PRIVATE KEY") that pure-JS JWT libraries refuse to import — plus iat backdating for clock drift and a promise-valued token cache so concurrent jobs share one in-flight exchange. Small, verifiable, proves the dance was actually implemented, not delegated to Octokit.
 
 ## 3. Queue + workers (M2)
 
@@ -34,6 +35,7 @@ Before an interview, pick the 3–4 stories most relevant to the company (integr
 - **Concepts:** statistical inference from noisy signals, strong vs probabilistic evidence (same-commit divergence vs transition history), temporal decay, false-positive cost asymmetry (wrongly flagging a real regression as flaky is the worst failure — it hides bugs).
 - **Unlocks:** precision/recall trade-off discussions, threshold tuning, "how would you validate the detector?" (backtesting against labeled history from real OSS repos).
 - **How to tell it:** lead with the asymmetry — "a false 'flaky' verdict teaches the team to ignore a real bug, so the system is tuned conservative and a human approves every quarantine."
+- **As implemented (M3, ADR-0010/0011):** two unequal evidence signals — same-commit divergence (weight 1.0: the code didn't change, the outcome did) and default-branch cross-commit transitions (0.25, discounted until file-relatedness lands); `score = evidence/(evidence+2)` with 14-day exponential half-life; flaky ≥ 0.5, suspected ≥ 0.25. Talking points that land: an always-failing test scores **zero** (evidence comes only from flips — broken ≠ flaky, encoded structurally, not as a special case); absence in a partial re-run is not a pass; recompute is event-driven over exactly (failed-now ∪ non-healthy-present), which guarantees fresh scores at the only moment they surface — a new failure; the PR annotation is `neutral`-only, so DevFlow is _structurally unable_ to block a merge; and every verdict decomposes into a sentence a developer can check ("1 same-commit pass/fail divergence yesterday").
 
 ## 5. AI assists, never decides (M5 + product principle)
 

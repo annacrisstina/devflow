@@ -1,12 +1,13 @@
 # @devflow/worker
 
-Background processing: consumes `ingest` jobs, turns raw `workflow_run` events into normalized rows, downloads artifacts from GitHub, parses JUnit XML, persists test results.
+Background processing: consumes `ingest` jobs, turns raw `workflow_run` events into normalized rows, downloads artifacts from GitHub, parses JUnit XML, persists test results, recomputes flakiness scores and writes advisory check runs back to the PR.
 
 ## Responsibility
 
 - The only process that calls the GitHub REST API (App JWT → installation tokens; the App private key lives in this process's environment and nowhere else).
-- Pipeline per job: load raw event → normalize repository/run → list artifacts → download + unzip → parse JUnit → replace-per-run persist.
-- Failure policy (ADR-0007): transient errors throw → BullMQ retries (5 attempts, exponential backoff); `PermanentJobError` marks the run `failed` and completes the job.
+- Pipeline per job: load raw event → normalize repository/run → list artifacts → download + unzip → parse JUnit → replace-per-run persist → recompute flake scores for affected test identities (ADR-0010) → annotate the run's sha with a `neutral` check run when failing tests carry non-healthy verdicts (ADR-0011).
+- Failure policy (ADR-0007): transient errors throw → BullMQ retries (5 attempts, exponential backoff); `PermanentJobError` marks the run `failed` and completes the job — except in annotation, where it is absorbed with a warning (results and scores are already durable).
+- Detection tuning: `DEVFLOW_FLAKE_*` environment knobs (see `.env.example`); defaults under-flag on purpose.
 
 ## Boundaries
 

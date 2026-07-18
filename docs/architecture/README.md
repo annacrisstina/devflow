@@ -2,4 +2,6 @@
 
 System architecture documentation: context diagram, data flow, component boundaries.
 
-Intentionally empty at Milestone 0 — this fills in starting with the first functional milestone (webhook ingestion), so that diagrams describe code that exists rather than intentions. Decision history lives in [../adr/](../adr/).
+- [system-overview.md](system-overview.md) — context, processing pipeline, data model, detection summary (current through Milestone 3).
+
+Diagrams describe code that exists, not intentions; each is updated by the milestone that changes it. Decision history lives in [../adr/](../adr/).

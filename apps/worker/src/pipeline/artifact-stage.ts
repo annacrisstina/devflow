@@ -25,8 +25,13 @@ export type ArtifactStageConfig = {
  * leaves a run_artifacts row (found/skipped and why): "no results" must be
  * explainable from a table (ADR-0008).
  */
+export type ArtifactStageOutcome = 'succeeded' | 'no_artifacts';
+
 export function createArtifactStage(config: ArtifactStageConfig) {
-  return async function artifactStage(run: NormalizedRun, log: Logger): Promise<void> {
+  return async function artifactStage(
+    run: NormalizedRun,
+    log: Logger,
+  ): Promise<ArtifactStageOutcome> {
     const artifacts = await config.github.listRunArtifacts(
       run.installationId,
       run.owner,
@@ -40,7 +45,7 @@ export function createArtifactStage(config: ArtifactStageConfig) {
         .set({ processingStatus: 'no_artifacts', processedAt: new Date() })
         .where(eq(workflowRuns.id, run.workflowRunId));
       log.info('run has no artifacts');
-      return;
+      return 'no_artifacts';
     }
 
     const allCases: JUnitCase[] = [];
@@ -98,5 +103,6 @@ export function createArtifactStage(config: ArtifactStageConfig) {
 
     await persistResults(config.db, run.workflowRunId, allCases);
     log.info({ results: allCases.length }, 'test results persisted');
+    return 'succeeded';
   };
 }

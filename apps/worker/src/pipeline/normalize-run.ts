@@ -12,6 +12,9 @@ export type NormalizedRun = {
   repo: string;
   githubRunId: bigint;
   runAttempt: number;
+  headSha: string;
+  /** Effective stored value — the transition-evidence gate (ADR-0010). */
+  defaultBranch: string | null;
 };
 
 /**
@@ -36,6 +39,7 @@ export async function normalizeRun(db: Db, event: RawEvent): Promise<NormalizedR
   const githubRunId = asSafeInteger(workflowRun.id, 'workflow_run.id');
   const runAttempt = asSafeInteger(workflowRun.run_attempt, 'workflow_run.run_attempt');
   const headSha = asString(workflowRun.head_sha, 'workflow_run.head_sha');
+  const defaultBranch = optionalString(repository.default_branch);
 
   const repoRows = await db
     .insert(repositories)
@@ -45,6 +49,7 @@ export async function normalizeRun(db: Db, event: RawEvent): Promise<NormalizedR
       owner: ownerLogin,
       name: repoName,
       private: repository.private === true,
+      defaultBranch,
     })
     .onConflictDoUpdate({
       target: repositories.githubRepoId,
@@ -53,10 +58,12 @@ export async function normalizeRun(db: Db, event: RawEvent): Promise<NormalizedR
         owner: ownerLogin,
         name: repoName,
         private: repository.private === true,
+        // A payload without the field must not erase a known default branch.
+        ...(defaultBranch !== null ? { defaultBranch } : {}),
         updatedAt: new Date(),
       },
     })
-    .returning({ id: repositories.id });
+    .returning({ id: repositories.id, defaultBranch: repositories.defaultBranch });
   const repositoryId = repoRows[0]!.id;
 
   const runValues = {
@@ -92,6 +99,8 @@ export async function normalizeRun(db: Db, event: RawEvent): Promise<NormalizedR
     repo: repoName,
     githubRunId: BigInt(githubRunId),
     runAttempt: Number(runAttempt),
+    headSha,
+    defaultBranch: repoRows[0]!.defaultBranch,
   };
 }
 
