@@ -2,6 +2,8 @@ import { fileURLToPath } from 'node:url';
 
 import { envSchema } from 'env-schema';
 
+import type { DetectionConfig } from './detection/score.js';
+
 export type WorkerConfig = {
   logLevel: string;
   databaseUrl: string;
@@ -18,6 +20,8 @@ export type WorkerConfig = {
   maxArtifactBytes: number;
   /** Uncompressed per-XML-entry size above which the entry is skipped. */
   maxXmlEntryBytes: number;
+  /** ADR-0010 knobs; defaults deliberately under-flag. */
+  detection: DetectionConfig;
 };
 
 type RawEnv = {
@@ -30,6 +34,10 @@ type RawEnv = {
   DEVFLOW_GITHUB_API_URL: string;
   DEVFLOW_MAX_ARTIFACT_BYTES: number;
   DEVFLOW_MAX_XML_ENTRY_BYTES: number;
+  DEVFLOW_FLAKE_HALF_LIFE_DAYS: number;
+  DEVFLOW_FLAKE_SATURATION_K: number;
+  DEVFLOW_FLAKE_FLAKY_THRESHOLD: number;
+  DEVFLOW_FLAKE_SUSPECT_THRESHOLD: number;
 };
 
 const schema = {
@@ -54,6 +62,22 @@ const schema = {
     DEVFLOW_GITHUB_API_URL: { type: 'string', default: 'https://api.github.com' },
     DEVFLOW_MAX_ARTIFACT_BYTES: { type: 'number', default: 104_857_600 },
     DEVFLOW_MAX_XML_ENTRY_BYTES: { type: 'number', default: 52_428_800 },
+    // Detection knobs (ADR-0010). Defaults are the ADR's reference values;
+    // exclusiveMinimum guards the division in the scoring formula.
+    DEVFLOW_FLAKE_HALF_LIFE_DAYS: { type: 'number', default: 14, exclusiveMinimum: 0 },
+    DEVFLOW_FLAKE_SATURATION_K: { type: 'number', default: 2.0, exclusiveMinimum: 0 },
+    DEVFLOW_FLAKE_FLAKY_THRESHOLD: {
+      type: 'number',
+      default: 0.5,
+      exclusiveMinimum: 0,
+      maximum: 1,
+    },
+    DEVFLOW_FLAKE_SUSPECT_THRESHOLD: {
+      type: 'number',
+      default: 0.25,
+      exclusiveMinimum: 0,
+      maximum: 1,
+    },
   },
 } as const;
 
@@ -62,6 +86,11 @@ export function loadConfig(): WorkerConfig {
     schema,
     dotenv: { path: fileURLToPath(new URL('../../../.env', import.meta.url)), quiet: true },
   });
+  if (env.DEVFLOW_FLAKE_SUSPECT_THRESHOLD >= env.DEVFLOW_FLAKE_FLAKY_THRESHOLD) {
+    // Cross-field constraint JSON Schema can't express; a config where
+    // "suspected" outranks "flaky" is a misconfiguration, not a tuning choice.
+    throw new Error('DEVFLOW_FLAKE_SUSPECT_THRESHOLD must be below DEVFLOW_FLAKE_FLAKY_THRESHOLD');
+  }
   return {
     logLevel: env.DEVFLOW_LOG_LEVEL,
     databaseUrl: env.DEVFLOW_DATABASE_URL,
@@ -76,5 +105,11 @@ export function loadConfig(): WorkerConfig {
     },
     maxArtifactBytes: env.DEVFLOW_MAX_ARTIFACT_BYTES,
     maxXmlEntryBytes: env.DEVFLOW_MAX_XML_ENTRY_BYTES,
+    detection: {
+      halfLifeDays: env.DEVFLOW_FLAKE_HALF_LIFE_DAYS,
+      saturationK: env.DEVFLOW_FLAKE_SATURATION_K,
+      flakyThreshold: env.DEVFLOW_FLAKE_FLAKY_THRESHOLD,
+      suspectThreshold: env.DEVFLOW_FLAKE_SUSPECT_THRESHOLD,
+    },
   };
 }
