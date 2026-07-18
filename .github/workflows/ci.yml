@@ -17,6 +17,24 @@ jobs:
   quality:
     name: Format, lint, typecheck, build, test
     runs-on: ubuntu-latest
+    services:
+      # Same image as compose.yaml: integration tests must run against the
+      # exact Postgres flavor development uses (dev/prod parity).
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: devflow
+          POSTGRES_PASSWORD: devflow_local
+          POSTGRES_DB: devflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U devflow -d devflow"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DEVFLOW_DATABASE_URL: postgresql://devflow:devflow_local@127.0.0.1:5432/devflow
     steps:
       # Actions are pinned to full commit SHAs: mutable tags are a supply-chain
       # vector (see the tj-actions/changed-files incident). Dependabot keeps them fresh.

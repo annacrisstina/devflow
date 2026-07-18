@@ -5,7 +5,7 @@
 [![CI](https://github.com/annacrisstina/devflow/actions/workflows/ci.yml/badge.svg)](https://github.com/annacrisstina/devflow/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Status: early development.** The repository foundation is in place; the first functional milestone (GitHub webhook ingestion) is in progress. Nothing here is usable yet — watch the repo if you want to follow along. (Honest footnote: until the first package lands, CI guards formatting, linting and commit hygiene only — the typecheck/build/test gates activate with the first code.)
+**Status: early development.** The repository foundation is in place; the first functional milestone (GitHub webhook ingestion) is in progress. Nothing here is usable yet — watch the repo if you want to follow along.
 
 ## The problem
 

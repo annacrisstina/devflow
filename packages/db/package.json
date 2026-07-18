@@ -1,0 +1,39 @@
+{
+  "name": "@devflow/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Database schema, migrations and connection factory for DevFlow.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./schema/webhook-events": {
+      "types": "./dist/schema/webhook-events.d.ts",
+      "default": "./dist/schema/webhook-events.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.2",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/pg": "^8.15.4",
+    "drizzle-kit": "^0.31.4",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
+  }
+}
