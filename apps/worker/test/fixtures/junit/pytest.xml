@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="0" skipped="1" tests="3" time="0.512" timestamp="2026-07-18T09:20:11.111111" hostname="ci-runner">
+    <testcase classname="tests.test_api" name="test_healthz" file="tests/test_api.py" line="12" time="0.101"/>
+    <testcase classname="tests.test_api" name="test_webhook_signature" file="tests/test_api.py" line="29" time="0.204"/>
+    <testcase classname="tests.test_api" name="test_needs_docker" file="tests/test_api.py" line="47" time="0.001">
+      <skipped type="pytest.skip" message="docker not available in CI"/>
+    </testcase>
+  </testsuite>
+</testsuites>

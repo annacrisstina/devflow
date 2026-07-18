@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="com.devflow.IngestServiceTest" time="4.21" tests="2" errors="1" skipped="0" failures="0">
+  <properties>
+    <property name="java.version" value="21.0.2"/>
+  </properties>
+  <testcase name="persistsRawEvent" classname="com.devflow.IngestServiceTest" time="0.912"/>
+  <testcase name="handlesConnectionLoss" classname="com.devflow.IngestServiceTest" time="3.298">
+    <error message="Connection refused" type="java.net.ConnectException">java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at com.devflow.IngestServiceTest.handlesConnectionLoss(IngestServiceTest.java:66)</error>
+  </testcase>
+</testsuite>
