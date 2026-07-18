@@ -1,10 +1,18 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 
+import { testFlakeScores } from './schema/flake-scores.js';
 import { repositories, runArtifacts, testResults, workflowRuns } from './schema/runs.js';
 import { webhookEvents } from './schema/webhook-events.js';
 
-const schema = { webhookEvents, repositories, workflowRuns, runArtifacts, testResults };
+const schema = {
+  webhookEvents,
+  repositories,
+  workflowRuns,
+  runArtifacts,
+  testResults,
+  testFlakeScores,
+};
 
 export type Db = ReturnType<typeof drizzle<typeof schema>>;
 

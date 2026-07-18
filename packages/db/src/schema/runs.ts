@@ -28,6 +28,9 @@ export const repositories = pgTable('repositories', {
   owner: text('owner').notNull(),
   name: text('name').notNull(),
   private: boolean('private').notNull(),
+  // Transition evidence (ADR-0010) only counts on this branch: a flip on a PR
+  // branch is plausibly the PR's fault, a flip here is suspicious.
+  defaultBranch: text('default_branch'),
   firstSeenAt: timestamp('first_seen_at', { withTimezone: true, mode: 'date' })
     .notNull()
     .defaultNow(),
@@ -60,6 +63,9 @@ export const workflowRuns = pgTable(
     // queued | processing | succeeded | failed | no_artifacts
     processingStatus: text('processing_status').notNull().default('queued'),
     processedAt: timestamp('processed_at', { withTimezone: true, mode: 'date' }),
+    // Checks-API annotation idempotency: reprocessing PATCHes this check
+    // instead of stacking a new one (NULL = never annotated).
+    flakeCheckRunId: bigint('flake_check_run_id', { mode: 'bigint' }),
   },
   (table) => [
     uniqueIndex('workflow_runs_github_run_attempt_idx').on(table.githubRunId, table.runAttempt),

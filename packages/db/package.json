@@ -17,6 +17,10 @@
     "./schema/runs": {
       "types": "./dist/schema/runs.d.ts",
       "default": "./dist/schema/runs.js"
+    },
+    "./schema/flake-scores": {
+      "types": "./dist/schema/flake-scores.d.ts",
+      "default": "./dist/schema/flake-scores.js"
     }
   },
   "files": [

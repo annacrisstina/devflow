@@ -15,6 +15,13 @@
       "when": 1784370009132,
       "tag": "0001_add-normalized-run-tables",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784375788126,
+      "tag": "0002_add-flake-detection",
+      "breakpoints": true
     }
   ]
 }
