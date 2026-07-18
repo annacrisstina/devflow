@@ -21,8 +21,12 @@ const fixture = JSON.parse(
 let client: DbClient;
 const log = pino({ level: 'silent' });
 
-function deps(artifactStage: ProcessJobDeps['artifactStage'] = async () => {}): ProcessJobDeps {
-  return { db: client.db, log, artifactStage };
+function deps(
+  artifactStage: ProcessJobDeps['artifactStage'] = async () => 'succeeded',
+  detectionStage: ProcessJobDeps['detectionStage'] = async () => {},
+  annotationStage: ProcessJobDeps['annotationStage'] = async () => {},
+): ProcessJobDeps {
+  return { db: client.db, log, artifactStage, detectionStage, annotationStage };
 }
 
 async function insertEvent(payload: unknown, deliveryId: string): Promise<string> {
@@ -61,6 +65,26 @@ describe('processJob', () => {
     expect(runs.rows[0]?.conclusion).toBe('failure');
   });
 
+  it('captures default_branch and keeps it when a later payload omits the field', async () => {
+    const eventId = await insertEvent(fixture, 'w-guid-db-1');
+    await processJob(deps(), { webhookEventId: eventId, deliveryId: 'w-guid-db-1' });
+
+    const before = await client.db.execute(
+      sql`SELECT default_branch FROM repositories WHERE github_repo_id = 823041188`,
+    );
+    expect(before.rows[0]?.default_branch).toBe('main');
+
+    const stripped = structuredClone(fixture);
+    delete (stripped.repository as Record<string, unknown>).default_branch;
+    const strippedId = await insertEvent(stripped, 'w-guid-db-2');
+    await processJob(deps(), { webhookEventId: strippedId, deliveryId: 'w-guid-db-2' });
+
+    const after = await client.db.execute(
+      sql`SELECT default_branch FROM repositories WHERE github_repo_id = 823041188`,
+    );
+    expect(after.rows[0]?.default_branch).toBe('main');
+  });
+
   it('reprocessing converges instead of duplicating (semantic idempotency)', async () => {
     const eventId = await insertEvent(fixture, 'w-guid-2');
     await processJob(deps(), { webhookEventId: eventId, deliveryId: 'w-guid-2' });
@@ -96,6 +120,37 @@ describe('processJob', () => {
       sql`SELECT processing_status FROM workflow_runs WHERE github_run_id = 777001`,
     );
     expect(runs.rows[0]?.processing_status).toBe('failed');
+  });
+
+  it('runs detection only when results were persisted', async () => {
+    let detectionCalls = 0;
+    const countingDetection = async () => {
+      detectionCalls += 1;
+    };
+
+    const succeeded = structuredClone(fixture);
+    (succeeded.workflow_run as Record<string, unknown>).id = 777010;
+    const succeededId = await insertEvent(succeeded, 'w-guid-det-1');
+    await processJob(
+      deps(async () => 'succeeded', countingDetection),
+      {
+        webhookEventId: succeededId,
+        deliveryId: 'w-guid-det-1',
+      },
+    );
+    expect(detectionCalls).toBe(1);
+
+    const empty = structuredClone(fixture);
+    (empty.workflow_run as Record<string, unknown>).id = 777011;
+    const emptyId = await insertEvent(empty, 'w-guid-det-2');
+    await processJob(
+      deps(async () => 'no_artifacts', countingDetection),
+      {
+        webhookEventId: emptyId,
+        deliveryId: 'w-guid-det-2',
+      },
+    );
+    expect(detectionCalls).toBe(1);
   });
 
   it('rethrows transient artifact errors so BullMQ retries', async () => {

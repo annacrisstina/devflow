@@ -37,7 +37,13 @@ beforeAll(async () => {
   await queueEvents.waitUntilReady();
 
   worker = createIngestWorker(
-    { db: client.db, log: pino({ level: 'silent' }), artifactStage: async () => {} },
+    {
+      db: client.db,
+      log: pino({ level: 'silent' }),
+      artifactStage: async () => 'succeeded',
+      detectionStage: async () => {},
+      annotationStage: async () => {},
+    },
     workerConnection,
     1,
     pino({ level: 'silent' }),
