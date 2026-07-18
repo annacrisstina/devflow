@@ -17,6 +17,12 @@ Additional constraints:
 - Every architecturally significant decision in a milestone ships with its ADR **in the same change set**.
 - Work happens milestone by milestone; no speculative scaffolding for future milestones (directories-with-intent READMEs are the allowed placeholder form).
 
+## Milestone completeness & attribution (founder amendment, 2026-07-18, post-M2)
+
+- **A milestone is complete only when code, tests, ADRs, project memory, development log and session notes are ALL updated and ready for review** — documentation lands alongside the code it documents, on the same branch, before the PR opens.
+- **No separate post-merge documentation branches** unless a significant new event occurs that could not reasonably have been documented before the merge (the M2 post-merge closeout was the motivating case; its content folds into the next feature branch).
+- **Commit hygiene:** Conventional Commits only; small, logically separated commits; **no `Co-Authored-By` trailers or AI attribution in commit messages** (standing founder directive; the M2 pre-push history rewrite enforced it retroactively).
+
 ## Review workflow
 
 - Formal **readiness reviews** happen at the founder's request and are adversarial by design: findings are categorized BLOCKER / MAJOR / MINOR / NIT, and a milestone is not approved while blockers exist.
