@@ -12,14 +12,11 @@
 
 Monorepo (pnpm + Turborepo), engineering standards (ESLint/Prettier/commitlint/EditorConfig), GitHub Flow + Conventional Commits, CI skeleton (quality + commitlint jobs, SHA-pinned actions), dev environment (compose: pgvector Postgres 17 + Redis 7 AOF, loopback-bound), governance (README/LICENSE/CONTRIBUTING/SECURITY/CoC/CODEOWNERS/issue forms/PR template/Dependabot), ADR-0001/0002, doctor script, project memory docs. Passed a formal readiness review after remediating 5 blockers. Details: [development-log.md](../development-log.md).
 
+### Milestone 1 — GitHub App + webhook ingestion skeleton ✅ (2026-07-18, awaiting founder review/PR)
+
+`apps/api` (Fastify 5) + `packages/db` (Drizzle): HMAC-verified (constant-time, raw bytes, verify-before-parse), delivery-GUID-idempotent `POST /webhooks/github` persisting raw payloads append-only; `/healthz`; boot-time config validation; ADR-0003…0006; CI gates activated with a real Postgres service container; end-to-end verified through a live smee.io tunnel. Founder-trimmed scope honored: no queue enqueue, no installation-token client, no App private key (all M2). GitHub App creation is a documented founder step ([github-app-setup.md](../github-app-setup.md)). Details: [development-log.md](../development-log.md).
+
 ## Future milestones (order is load-bearing)
-
-### Milestone 1 — GitHub App + webhook ingestion skeleton
-
-**Goal:** GitHub events flow into Postgres, verified and idempotent. The spine of the product.
-**Scope:** `apps/api` (Fastify), `packages/db` (Drizzle + first migrations), GitHub App setup (manifest, docs), `/webhooks/github` endpoint: HMAC verification (constant-time), raw event persistence (append-only), fast ACK; delivery-GUID idempotency; smee/tunnel dev workflow for local webhooks.
-**ADRs due:** Fastify choice; ingestion model (raw-first, idempotency strategy); GitHub App vs OAuth App.
-**Why first:** everything downstream (parsing, detection, UI) consumes what this produces; it also activates the currently-vacuous CI gates with the first real package.
 
 ### Milestone 2 — Artifact pipeline: queue + workers + JUnit parsing
 

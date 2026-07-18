@@ -14,7 +14,9 @@
     },
     "test": {
       "dependsOn": ["build"],
-      "outputs": ["coverage/**"]
+      // Turbo's strict env mode strips undeclared variables from task
+      // environments; integration tests need the database URL to reach it.
+      "env": ["DEVFLOW_DATABASE_URL"]
     }
   }
 }

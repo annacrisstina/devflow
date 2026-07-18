@@ -90,6 +90,24 @@ All findings fixed and **re-verified from scratch** (each check re-run against a
 
 The founder directed creation of `docs/project-memory/`, `docs/session-notes/implementation-handoff.md` and `docs/development-log.md` as the project's permanent memory, with an explicit update contract (memory on decisions; handoff every session; log every milestone). Rationale: chat history is ephemeral and already failed once (Phase 1); the repo itself must carry the project's reasoning.
 
+## Session of 2026-07-17 — Milestone 1 architecture review
+
+The founder confirmed M0 as committed/pushed (`3a7116a` — note: with subject `chore: initial project setup`, not the suggested message; harmless, pre-dates CI enforcement), declared the foundation **frozen**, and opened Milestone 1 with an explicit Phase-1-first instruction: full design as an architecture review document, no implementation until approved.
+
+The review document covered scope (in/out with landing milestones for everything deferred), components, the end-to-end request flow (authenticate raw bytes → parse → atomic idempotent persist → fast ACK; 500 on db-down because GitHub redelivery is the recovery path), security posture (constant-time HMAC before any interpretation, body limits, no rate limiting as a stated accepted risk, App private key kept out of M1 entirely), the `webhook_events` design (all column-level decisions pre-argued), risks (smee re-serialization, GUID semantics vs manual redelivery, raw-body capture pitfalls), and a 5-step implementation order with per-step verification.
+
+**Founder approved with a scope trim** — the operative M1 goal became exactly: Fastify API, Drizzle db package, webhook endpoint, HMAC verification, raw persistence, basic end-to-end verification; everything else minimal. Process set: one component at a time, founder review between components.
+
+## Session of 2026-07-18 — Milestone 1 implementation
+
+- **Component 1 (`packages/db`)** built and verified (migration applied and inspected, integration tests on a recreated-from-migrations throwaway DB, CI gate proven by a deliberate red). Founder reviewed and approved, then **authorized autonomous continuation** through M1 (stop only for architectural decisions, blockers, or completion).
+- **ADR renumbering versus the review doc:** Drizzle's ADR became 0003 (shipped with component 1, per ADRs-land-with-their-code); Fastify 0004, ingestion model 0005, GitHub App 0006.
+- **Component 2 (`apps/api`)**: Fastify skeleton, env-schema config (webhook secret required, never defaulted), pino, `/healthz`, graceful shutdown; served and SIGTERM-drained for real.
+- **Component 3 (webhook endpoint)**: scoped raw-body parser, constant-time HMAC, idempotent insert; 13 tests total including tampered/duplicate/malformed cases on a recorded-shape fixture.
+- **Component 4**: GitHub App setup guide (least-privilege, no private key in M1) + live end-to-end: signed compact payload → public smee.io channel → local API → row in Postgres; duplicate GUID absorbed; tampered and unsigned junk rejected with zero rows.
+- **Deviation, recorded:** no git credentials available to the engineer → per-component PRs impossible; components landed as sequential commits on `feat/db-webhook-events`, founder to push and open the PR.
+- Incidents worth remembering: `URL.pathname` vs space-containing repo path (fixed with `fileURLToPath`); a stale server holding port 3001 made a dead process look healthy (check port ownership before trusting curl); smee re-serializes JSON so tunnel HMAC only verifies for canonical-compact bytes; `corepack enable --install-directory ~/.local/bin` solves the sudo problem and is required because Turbo spawns `pnpm` from PATH.
+
 ## Standing outcomes of this day
 
 1. Product locked: CI reliability platform (flaky tests) for GitHub Actions.

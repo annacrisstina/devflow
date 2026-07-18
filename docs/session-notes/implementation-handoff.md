@@ -2,75 +2,62 @@
 
 > **The operational handoff.** Always reflects the latest repository state; updated at the end of EVERY working session. A new engineer (human or AI) should be able to continue from this file alone, without any chat history. Background knowledge lives in [../project-memory/](../project-memory/); read [project-overview.md](../project-memory/project-overview.md) and [implementation-rules.md](../project-memory/implementation-rules.md) first.
 
-**Last updated:** 2026-07-14 (end of session)
+**Last updated:** 2026-07-18 (end of session)
 
 ## Current repository status
 
-- **Branch:** `main` (the only branch; repo is local-only, **not yet pushed to GitHub**).
-- **Git state:** ⚠️ **NO COMMITS YET.** All ~50 files are staged and verified; the initial commit is prepared and awaiting the founder's explicit confirmation (per milestone workflow rule 6). Suggested, commitlint-validated message:
-  ```
-  chore(repo): scaffold monorepo foundation and engineering standards
-  ```
-- **Working directory:** `/mnt/d/PROIECTE + CURSURI/project/devflow` (WSL2, Windows-mounted drive — see Environment notes).
-- **Local infra:** `devflow-postgres` (pgvector/pg17) and `devflow-redis` running and healthy via `docker compose up -d`; pgvector 0.8.5 verified working.
+- **`main`:** at `3a7116a` (Milestone 0), in sync with `annacrisstina/devflow`.
+- **Branch `feat/db-webhook-events`** (local only — the engineer has no push credentials): **Milestone 1 complete and locally verified**, as five commits:
+  1. `feat(db): add webhook_events schema, migrations and db client`
+  2. `feat(api): scaffold Fastify API with config validation and health endpoint`
+  3. `feat(ingest): add HMAC-verified idempotent GitHub webhook endpoint`
+  4. `docs(docs): add GitHub App setup guide and integration ADR`
+  5. `docs(docs): record milestone 1 completion in project memory` (this commit)
+- **Local infra:** compose containers healthy; migration 0000 applied to the dev DB; `webhook_events` empty (e2e test rows cleaned).
+- **`.env` exists locally** (gitignored) with a generated `DEVFLOW_GITHUB_WEBHOOK_SECRET`.
 
-## Completed
+## Milestone 1 — what shipped
 
-- **Milestone 0 — repository foundation: DONE and APPROVED** by a formal Repository Readiness Review (adversarial, from-scratch re-verification; confidence 92%). Full detail: [development-log.md](../development-log.md) entry M0.
-- All 5 review blockers remediated and individually re-verified (SHA-pinned actions, Dependabot, issue forms, owner placeholders → `annacrisstina`, CoC; plus loopback ports, committed `.vscode`, `.gitattributes`, `.npmrc engine-strict`, compose validation in CI).
+See [development-log.md](../development-log.md) entry M1 for the full record. Short version: `@devflow/db` (webhook_events, migrations, client) + `@devflow/api` (Fastify 5, env-validated config, pino, `/healthz`, graceful shutdown) + `POST /webhooks/github` (raw-body scoped parser → constant-time HMAC before any parsing → atomic delivery-GUID-idempotent insert → 202/200/401/400/500) + GitHub App setup guide + ADR-0003…0006 + real CI gates (Postgres service container). 13 automated tests + live smee-tunnel e2e, all green.
 
-## Current priorities (in order)
+## Founder actions to close M1 (in order)
 
-1. **Founder actions (blockers for M1, cannot be done by the engineer):**
-   - Run the initial commit (message above; everything is staged).
-   - Create the GitHub repo `annacrisstina/devflow` and push.
-   - GitHub settings: branch protection on `main` (require PR; require `quality` + `commitlint` checks; linear history), enable Discussions (issue-form config links to it), repo topics + description.
-   - Confirm the first CI run on GitHub is green (the withheld 8% of review confidence).
-   - Locally, once: `sudo corepack enable` (until then use `corepack pnpm ...`).
-2. **Then: Milestone 1.**
+1. **Push the branch** and open the PR. The per-component-PR plan was blocked by missing credentials; options:
+   - _Simplest:_ one PR, squash-merge with title `feat(ingest): add GitHub App webhook ingestion skeleton` (commitlint-valid). Cost: M1 becomes one commit on `main`.
+   - _If per-component history on `main` matters:_ push the branch, then open+merge four sequential PRs by branching off each commit (`git branch tmp <sha>`), oldest first. More clicks, preserves granularity. The five local commits are already commitlint-valid individually.
+2. **Confirm CI is green on GitHub** — first run with the Postgres service container and real gates (closes the M0 review's withheld confidence too).
+3. **Create the GitHub App** following [docs/github-app-setup.md](../github-app-setup.md) (least privilege; do NOT generate a private key yet), install it on a repo with a workflow, and watch a real delivery land: `SELECT delivery_id, event_type FROM webhook_events ORDER BY id DESC LIMIT 5;`
+4. **Confirm Milestone 1** so Milestone 2 design can start (milestone workflow rule 6).
 
-## Next milestone: M1 — GitHub App + webhook ingestion skeleton
+## Next milestone: M2 — artifact pipeline (queue + workers + JUnit parsing)
 
-Scope (full rationale in [roadmap.md](../project-memory/roadmap.md)):
-
-- `apps/api` — Fastify app, TypeScript strict, first real workspace package (this activates the currently-vacuous typecheck/build/test CI gates — a documented M0 debt).
-- `packages/db` — Drizzle schema + first migration (raw webhook events table).
-- `POST /webhooks/github`: HMAC `X-Hub-Signature-256` verification (constant-time), persist raw payload append-only, fast ACK, delivery-GUID idempotency.
-- GitHub App registration (founder creates the app; manifest + setup documented in `docs/`).
-- Local webhook dev loop (smee.io or equivalent tunnel).
-- ADRs due: Fastify choice; ingestion model (raw-first + idempotency); GitHub App vs OAuth App.
-
-**Exact starting point for the next session:** confirm founder actions above are done → propose M1 design decisions (step 1–2 of the milestone workflow: goal + design, BEFORE files) → wait for approval → implement.
-
-## First implementation task of M1 (after design approval)
-
-Scaffold `apps/api` + `packages/db` as workspace packages wired into Turborepo (build/typecheck/test tasks), with one failing-then-passing test to prove the CI gates actually gate now.
+Scope per [roadmap.md](../project-memory/roadmap.md): `apps/worker`, BullMQ, installation-token client (JWT → installation token; the App **private key enters the system here** — generate it only now), artifact download + streaming JUnit XML parsing with real fixtures, normalized runs/suites/results schema, retries + DLQ, correlation IDs across api→queue→worker. ADRs due: BullMQ; test-results data model + partitioning; workspace multi-tenancy schema. **Design step first** (goal + decisions for founder approval before files), per milestone workflow.
 
 ## Remaining blockers
 
-- Founder actions listed above (commit, push, GitHub settings). Nothing else blocks M1.
+- Founder actions above. Nothing else blocks M2 design (which can start on founder approval even before the GitHub App exists — but real-data testing in M2 needs the App installed).
 
 ## Repository health
 
-- `pnpm format:check` ✅ · `pnpm lint` ✅ · `docker compose config -q` ✅ · containers healthy ✅ · commitlint on suggested message ✅.
-- `pnpm verify`'s typecheck/build/test legs are **vacuous** until M1's first package (known, disclosed in README footnote).
-- `./scripts/doctor.sh` fails locally only on "pnpm not in PATH" — environment issue (`sudo corepack enable` pending), not a repo issue.
+- `pnpm verify` fully green locally (format, lint, typecheck, build, 13 tests). CI on GitHub not yet exercised for M1 (push pending).
+- Suggested PR title if single-PR route: `feat(ingest): add GitHub App webhook ingestion skeleton`.
 
 ## Known technical debt (accepted, tracked)
 
-1. **E1:** vacuous typecheck/build/test gates → closes naturally in M1.
-2. **C2:** commitlint CI job installs the whole workspace (~1m40s cold) just to lint messages → isolate when it hurts.
-3. `docs/architecture/` is an intentional placeholder → must be populated by M1–M2 (diagrams describe real code only).
+1. C2: commitlint CI job installs the whole workspace just to lint messages → isolate when it hurts.
+2. `docs/architecture/` placeholder → populate from real code by M2 (ingestion diagram now has real code to describe).
+3. Integration tests need a reachable Postgres (compose/service container) — Docker-less `pnpm verify` fails at the test leg; accepted (fixtures-over-mocks applied to the database).
+4. dotenv v17 emits a banner unless `quiet: true` — already handled in `apps/api`; remember it for future packages loading `.env`.
 
 ## Environment notes (this machine)
 
-- WSL2; repo on `/mnt/d` (drvfs) → filesystem ops ~10–30× slower than ext4 (install took 1m42s). Standing recommendation: move repo to `~/dev/devflow`, access from Windows via `\\wsl$`. Founder has not decided yet.
-- Node 20.19.4 local (out of LTS since April 2026); `.nvmrc` targets 22 → `nvm install 22` recommended. `engines` floor is `>=20.19.0` so local still works.
-- pnpm only via `corepack pnpm ...` until `sudo corepack enable` is run.
-- GitHub username: `annacrisstina` (verified to exist). Contact email in SECURITY/CoC: rohike.contact@gmail.com.
+- WSL2; repo on `/mnt/d` (drvfs) → fs ops ~10–30× slower than ext4; cold server start can exceed 2s — poll, don't sleep-once. Move-to-ext4 recommendation stands; founder undecided.
+- pnpm via corepack shim at `~/.local/bin/pnpm` (`corepack enable --install-directory ~/.local/bin`, no sudo). Turbo requires `pnpm` on PATH; if a shell lacks it: `export PATH="$HOME/.local/bin:$PATH"`.
+- Node 20.19.4 local (`.nvmrc` targets 22; engines floor `>=20.19.0` keeps local working). `jq` not installed (use `node -e` for JSON work). No `gh` CLI; no non-interactive git credentials.
+- GitHub username: `annacrisstina`. Contact email in SECURITY/CoC: rohike.contact@gmail.com.
 
 ## Things to remember before continuing
 
-- Follow the **milestone workflow** and the **NEVER list** in [implementation-rules.md](../project-memory/implementation-rules.md) — especially: design before files, run verifications for real, wait for confirmation at milestone boundaries, never reopen the choice-of-project question without a technical blocker.
+- Follow the **milestone workflow** and the **NEVER list** in [implementation-rules.md](../project-memory/implementation-rules.md) — design before files, run verifications for real, founder confirmation at milestone boundaries.
 - Update this file at the end of every session; append to [development-log.md](../development-log.md) after every milestone; update project-memory docs when significant decisions are made.
 - The founder communicates in Romanian; the repository is entirely in English.
