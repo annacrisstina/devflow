@@ -17,7 +17,7 @@
 - **Trade-offs accepted:** one dependency tree means major bumps hit everything at once; CI must be task-graph aware (mitigated by Turbo caching).
 - **Why pnpm specifically:** strict node_modules prevents phantom dependencies; `workspace:*` protocol makes internal deps explicit; pnpm 10 blocks dependency lifecycle scripts by default (supply-chain win).
 
-## D2. Backend: Fastify + Drizzle ORM — Committed (ADR due in M1)
+## D2. Backend: Fastify + Drizzle ORM — Locked (ADR-0003, ADR-0004)
 
 - **Decision:** Fastify as the HTTP framework, Drizzle as the SQL-first ORM, TypeScript throughout.
 - **Motivation:** Fastify has first-class JSON schema validation, excellent throughput for a webhook-ingestion-shaped workload, and a plugin model that keeps the codebase explicit. Drizzle does not hide SQL — the founder must be able to discuss query plans, indexes and migrations fluently at interviews, and Drizzle keeps that knowledge exercised.
@@ -44,7 +44,7 @@
 - **Motivation:** one source of truth, one backup story, no extra service to operate. Verified working locally (pgvector 0.8.5, `CREATE EXTENSION vector` succeeds).
 - **Alternatives:** Qdrant/dedicated vector DB (rejected: justified only above ~10M vectors, far beyond MVP); Pinecone (rejected: managed + paid contradicts self-hosting).
 
-## D6. GitHub integration: GitHub App, not OAuth App — Committed (ADR due in M1)
+## D6. GitHub integration: GitHub App, not OAuth App — Locked (ADR-0006)
 
 - **Decision:** DevFlow installs as a **GitHub App** (app-level JWT → per-installation access tokens, granular permissions, native webhook subscription).
 - **Motivation:** correct security model (permissions scoped per installation, short-lived tokens), per-installation rate limits (~5,000 req/h each rather than one shared pool), and it is the professional pattern every serious integration uses. The OAuth-App-vs-GitHub-App distinction is deliberate interview material.
@@ -104,9 +104,13 @@
 
 ## ADR summary (formal records to date)
 
-| ADR                                                     | Title                          | Status   | Essence                                                                                                                                                                                                         |
-| ------------------------------------------------------- | ------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0001](../adr/0001-record-architecture-decisions.md)    | Record architecture decisions  | Accepted | Nygard-format ADRs in `docs/adr/`, immutable once accepted, superseded not edited, land in the same PR as the change they justify. Significance test: "could a maintainer safely reverse this in an afternoon?" |
-| [0002](../adr/0002-monorepo-with-pnpm-and-turborepo.md) | Monorepo with pnpm + Turborepo | Accepted | See D1. Includes rejected alternatives (polyrepo, monolith, Nx) and accepted negatives.                                                                                                                         |
+| ADR                                                           | Title                           | Status   | Essence                                                                                                                                                                                                         |
+| ------------------------------------------------------------- | ------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0001](../adr/0001-record-architecture-decisions.md)          | Record architecture decisions   | Accepted | Nygard-format ADRs in `docs/adr/`, immutable once accepted, superseded not edited, land in the same PR as the change they justify. Significance test: "could a maintainer safely reverse this in an afternoon?" |
+| [0002](../adr/0002-monorepo-with-pnpm-and-turborepo.md)       | Monorepo with pnpm + Turborepo  | Accepted | See D1. Includes rejected alternatives (polyrepo, monolith, Nx) and accepted negatives.                                                                                                                         |
+| [0003](../adr/0003-drizzle-orm-for-database-access.md)        | Drizzle ORM for database access | Accepted | SQL stays visible (schema = reviewable DDL, committed forward-only migrations). Rejected: Prisma, Kysely, raw pg.                                                                                               |
+| [0004](../adr/0004-fastify-for-the-http-api.md)               | Fastify for the HTTP API        | Accepted | JSON-Schema validation at the boundary, pino built in, `buildApp()` factory for port-less tests. Rejected: NestJS, Express, Next API routes, Hono.                                                              |
+| [0005](../adr/0005-raw-first-idempotent-webhook-ingestion.md) | Raw-first idempotent ingestion  | Accepted | Authenticate raw bytes → parse → append-only persist (atomic `ON CONFLICT`) → fast ACK; 500 on db-down (redelivery recovers). GUID dedup ≠ semantic dedup (M2).                                                 |
+| [0006](../adr/0006-github-app-not-oauth-app.md)               | GitHub App, not OAuth App       | Accepted | Installation-scoped short-lived tokens, granular permissions, per-installation rate limits, native webhooks. Rejected: PAT, OAuth App.                                                                          |
 
-ADRs expected in upcoming milestones: Fastify choice, GitHub App + webhook ingestion model (raw-event persistence, idempotency strategy), BullMQ queue choice, database schema/multi-tenancy model, detection algorithm design.
+ADRs expected in upcoming milestones: BullMQ queue choice, test-results data model + workspace multi-tenancy schema (M2), detection algorithm design (M3).

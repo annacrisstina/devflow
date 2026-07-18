@@ -21,17 +21,17 @@ Webhooks need a public URL; the dev API listens on loopback. [smee.io](https://s
 
 GitHub → Settings → Developer settings → GitHub Apps → **New GitHub App**:
 
-| Field | Value |
-| --- | --- |
-| GitHub App name | `devflow-dev-<username>` (name is globally unique; suffix avoids collisions) |
-| Homepage URL | your fork/repo URL |
-| Webhook → Active | ✅ |
-| Webhook URL | the smee channel URL from step 2 |
-| Webhook secret | the secret from step 1 |
-| Permissions → Repository → **Actions** | Read-only |
-| Permissions → Repository → **Metadata** | Read-only (mandatory anyway) |
-| Subscribe to events | **Workflow run** |
-| Where can this app be installed? | Only on this account |
+| Field                                   | Value                                                                        |
+| --------------------------------------- | ---------------------------------------------------------------------------- |
+| GitHub App name                         | `devflow-dev-<username>` (name is globally unique; suffix avoids collisions) |
+| Homepage URL                            | your fork/repo URL                                                           |
+| Webhook → Active                        | ✅                                                                           |
+| Webhook URL                             | the smee channel URL from step 2                                             |
+| Webhook secret                          | the secret from step 1                                                       |
+| Permissions → Repository → **Actions**  | Read-only                                                                    |
+| Permissions → Repository → **Metadata** | Read-only (mandatory anyway)                                                 |
+| Subscribe to events                     | **Workflow run**                                                             |
+| Where can this app be installed?        | Only on this account                                                         |
 
 Everything else stays off. Least privilege is deliberate: M1 only receives webhooks. Checks: write arrives in M3 (PR annotation), and installers will be asked to re-approve then — that friction is the honest cost of not asking for permissions before needing them. `installation` / `installation_repositories` lifecycle events are delivered to apps automatically, no subscription needed.
 

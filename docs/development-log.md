@@ -69,4 +69,59 @@ Monorepo trade-offs (pnpm strictness/phantom deps, Turbo task graph vs Nx), supp
 
 ---
 
-_(Next entry: Milestone 1, appended when completed.)_
+## Milestone 1 — GitHub App + webhook ingestion skeleton
+
+- **Date:** 2026-07-18
+- **Milestone:** 1
+- **Goal:** GitHub events flow into Postgres, verified and idempotent — the spine every later milestone consumes. Scope was founder-trimmed to: Fastify API, Drizzle db package, webhook endpoint, HMAC verification, raw persistence, end-to-end verification; everything else minimal.
+
+### Completed work
+
+- `packages/db` (`@devflow/db`): `webhook_events` append-only table (delivery-GUID unique key, jsonb payload, extracted filter columns), committed forward-only SQL migration, `createDbClient` factory, integration tests against a recreated-from-migrations throwaway database.
+- `apps/api` (`@devflow/api`): Fastify 5, boot-time env validation (env-schema; missing webhook secret = refusal to boot), pino structured logs, `GET /healthz` (db reachability), graceful shutdown, `buildApp()` factory for port-less testing.
+- `POST /webhooks/github`: scoped raw-body content parser → constant-time HMAC verification **before any parsing or DB work** → `INSERT … ON CONFLICT (delivery_id) DO NOTHING` → 202 new / 200 duplicate / 401 bad signature / 400 malformed / 500 db-down (redelivery is the recovery path). Delivery GUID is the log correlation key.
+- CI gates made real: pgvector Postgres service container in the quality job; `turbo.json` declares `DEVFLOW_DATABASE_URL` (strict env mode); vacuous-gate README footnote removed — **debt E1 closed**, proven by a deliberate failing test exiting CI red locally before being removed.
+- GitHub App setup guide (`docs/github-app-setup.md`): least-privilege M1 configuration (Actions:read + Metadata:read, `workflow_run` events, **no private key generated** — M2 needs it first), smee.io dev loop, troubleshooting.
+- Root `tsconfig.base.json`; `.env.example` extended; package/app READMEs.
+
+### Verification (all run, not asserted)
+
+13 automated tests green (signature unit tests; webhook + health integration tests on real Postgres), full `pnpm verify` green, and a live end-to-end pass: signed payload → **public smee.io tunnel** → local API → HMAC verified → row in Postgres with correct extracted columns; redelivered GUID absorbed (200, still one row); tampered body and unsigned junk rejected 401 with zero rows; SIGTERM shutdown clean.
+
+### ADRs created
+
+- ADR-0003: Drizzle ORM (rejected: Prisma, Kysely, raw pg).
+- ADR-0004: Fastify (rejected: NestJS, Express, Next API routes, Hono).
+- ADR-0005: Raw-first idempotent ingestion (rejected: normalize-on-ingest, queue-as-store, check-then-insert, byte-fidelity storage, exactly-once pretensions).
+- ADR-0006: GitHub App, not OAuth App (rejected: PAT, OAuth App).
+
+### Lessons learned
+
+1. **Run the path, not just the tests:** resolving the migrations folder via `URL.pathname` passed review but broke at runtime on this repo's space-containing path — caught only because verification executes; fixed with `fileURLToPath`.
+2. **Tunnels re-serialize:** smee's client re-serializes JSON, so HMAC through a tunnel only verifies if the posted bytes are canonical-compact — a nuance that would have burned hours during real GitHub testing had e2e not been rehearsed.
+3. **Stale processes lie:** an earlier server instance still holding the port made a fresh build "pass" its health check; the EADDRINUSE in the new process's log was the only tell. Check who owns the port before trusting a green curl.
+4. **The M0 corepack annoyance had a sudo-free fix all along:** `corepack enable --install-directory ~/.local/bin` — required anyway, because Turbo spawns `pnpm` from PATH.
+
+### Problems encountered
+
+- No git credentials available to the engineer → pushing and PR creation are founder actions; components landed as sequential commits on `feat/db-webhook-events` instead of one PR each (deviation recorded in the handoff, with merge options).
+- dotenv v17 prints a banner onto stdout → silenced (`quiet: true`); structured-logs-only stdout is a stated observability stance.
+
+### Technical debt introduced (accepted, tracked)
+
+- Integration tests require a reachable Postgres (compose locally, service container in CI); a Docker-less `pnpm verify` fails at the test leg — accepted, real-database testing is the fixtures-over-mocks rule applied.
+- `docs/architecture/` placeholder still pending (fill from real code by M2).
+- C2 (commitlint job installs full workspace) unchanged.
+
+### Interview topics covered by this milestone
+
+Webhook ingestion at scale (ACK-fast, at-least-once, idempotency keys, out-of-order tolerance), HMAC verification mechanics (raw bytes, constant-time compare, verify-before-parse), GitHub App vs OAuth App security models, raw-first/event-sourcing-lite storage, honest-CI-gate activation. Details: [project-memory/interview-notes.md](project-memory/interview-notes.md) §1–2.
+
+### Status & next
+
+- **Milestone 1: complete and locally verified; awaiting founder review** + push/PR (CI on GitHub) + GitHub App creation (manual, guided) + real-GitHub delivery check.
+- **Next milestone:** M2 — artifact pipeline (BullMQ queue, worker, installation-token client, JUnit parsing, normalized schema). Design step first, per milestone workflow.
+
+---
+
+_(Next entry: Milestone 2, appended when completed.)_

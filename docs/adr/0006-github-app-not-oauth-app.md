@@ -20,8 +20,8 @@ DevFlow integrates as a **GitHub App**.
 ## Alternatives considered
 
 - **Personal access token (PAT)** — the student default, and wrong on every axis: acts as a full user, coarse scopes, one shared rate limit, manual webhook setup per repo, and a leaked PAT compromises the owner's whole account. Fine for scripts; disqualifying for an installable product.
-- **OAuth App** — authenticates *users* and acts *as them*: access mirrors whatever the authorizing user can touch (far more than DevFlow needs), tokens don't expire by default, rate limits pool per user, and webhooks still need per-repo registration. OAuth user login for the dashboard is a separate, legitimate need — handled by Auth.js in M4 and deliberately distinct from this integration identity.
-- **GitHub App** — wins on scoped-by-installation permissions, short-lived tokens, per-installation rate limits (~5,000 req/h *each* instead of one shared pool — material once artifact downloads start in M2), and native webhook subscription. It is the pattern every serious integration (including the closed-SaaS competitors) uses.
+- **OAuth App** — authenticates _users_ and acts _as them_: access mirrors whatever the authorizing user can touch (far more than DevFlow needs), tokens don't expire by default, rate limits pool per user, and webhooks still need per-repo registration. OAuth user login for the dashboard is a separate, legitimate need — handled by Auth.js in M4 and deliberately distinct from this integration identity.
+- **GitHub App** — wins on scoped-by-installation permissions, short-lived tokens, per-installation rate limits (~5,000 req/h _each_ instead of one shared pool — material once artifact downloads start in M2), and native webhook subscription. It is the pattern every serious integration (including the closed-SaaS competitors) uses.
 
 ## Consequences
 
