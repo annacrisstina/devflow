@@ -41,6 +41,9 @@ importers:
       '@auth/drizzle-adapter':
         specifier: ^1.11.2
         version: 1.11.2
+      '@devflow/ai':
+        specifier: workspace:^
+        version: link:../../packages/ai
       '@devflow/contract':
         specifier: workspace:^
         version: link:../../packages/contract

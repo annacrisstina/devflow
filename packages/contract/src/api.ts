@@ -38,6 +38,43 @@ export type WorkspaceSummary = {
 export type MeResponse = {
   user: SessionUserDto;
   workspaces: WorkspaceSummary[];
+  /** Deployment capabilities (ADR-0017): the UI renders only what's on. */
+  features: {
+    aiSearch: boolean;
+    aiHypotheses: boolean;
+  };
+};
+
+/** Semantic search over failure history (ADR-0018). */
+export type SearchResult = {
+  repositoryId: string;
+  repository: string;
+  snippet: string;
+  /** Cosine similarity in [~0, 1]; higher is closer. */
+  similarity: number;
+  /** How many recorded test failures carry exactly this failure text. */
+  occurrences: number;
+  /** Display names of tests that hit this failure (capped). */
+  affectedTests: string[];
+};
+
+/** One failure cluster (ADR-0018): geometry, not generation. */
+export type FailureCluster = {
+  representativeSnippet: string;
+  /** Distinct failure texts merged into this cluster. */
+  distinctFailures: number;
+  /** Total recorded failures across the cluster's texts. */
+  occurrences: number;
+  affectedTests: string[];
+};
+
+/** AI-generated root-cause hypothesis (ADR-0019) — always advisory. */
+export type Hypothesis = {
+  content: string;
+  model: string;
+  promptVersion: string;
+  createdBy: string | null;
+  createdAt: string;
 };
 
 export type InstallationSummary = {
