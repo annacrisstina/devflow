@@ -1,6 +1,6 @@
 {
   "name": "devflow",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "DevFlow \u2014 developer productivity platform. MVP: CI reliability for GitHub Actions (flaky test detection, quantification and quarantine).",
   "license": "MIT",
