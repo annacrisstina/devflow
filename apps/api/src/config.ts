@@ -14,6 +14,13 @@ export type ApiConfig = {
   databaseUrl: string;
   redisUrl: string;
   webhookSecret: string;
+  /** Public base URL of this deployment (OAuth callbacks, signed links). */
+  appUrl: string;
+  /** Auth.js cookie/token secret + HMAC key for signed install-state (ADR-0013). */
+  authSecret: string;
+  /** The GitHub App's own OAuth credentials (user login, ADR-0013). */
+  githubClientId: string;
+  githubClientSecret: string;
 };
 
 type RawEnv = {
@@ -23,15 +30,32 @@ type RawEnv = {
   DEVFLOW_DATABASE_URL: string;
   DEVFLOW_REDIS_URL: string;
   DEVFLOW_GITHUB_WEBHOOK_SECRET: string;
+  DEVFLOW_APP_URL: string;
+  DEVFLOW_AUTH_SECRET: string;
+  DEVFLOW_GITHUB_CLIENT_ID: string;
+  DEVFLOW_GITHUB_CLIENT_SECRET: string;
 };
 
 const schema = {
   type: 'object',
-  // No default for the webhook secret, ever: a guessable default would turn
-  // HMAC verification into theater. Boot fails loudly without it.
-  required: ['DEVFLOW_GITHUB_WEBHOOK_SECRET'],
+  // No defaults for secrets, ever: a guessable default would turn
+  // authentication into theater. Boot fails loudly without them.
+  required: [
+    'DEVFLOW_GITHUB_WEBHOOK_SECRET',
+    'DEVFLOW_AUTH_SECRET',
+    'DEVFLOW_GITHUB_CLIENT_ID',
+    'DEVFLOW_GITHUB_CLIENT_SECRET',
+  ],
   properties: {
     DEVFLOW_GITHUB_WEBHOOK_SECRET: { type: 'string', minLength: 1 },
+    // 32+ chars: this keys both Auth.js session cookies and the signed
+    // install-state HMAC; a short secret weakens every session at once.
+    DEVFLOW_AUTH_SECRET: { type: 'string', minLength: 32 },
+    DEVFLOW_GITHUB_CLIENT_ID: { type: 'string', minLength: 1 },
+    DEVFLOW_GITHUB_CLIENT_SECRET: { type: 'string', minLength: 1 },
+    // Loopback default matches the dev API address; a deployment behind a
+    // domain must set this or OAuth callbacks will point at localhost.
+    DEVFLOW_APP_URL: { type: 'string', default: 'http://127.0.0.1:3001' },
     // Loopback by default: exposing the dev API to the network must be an
     // explicit choice (compose-based self-hosting overrides this in M6).
     DEVFLOW_API_HOST: { type: 'string', default: '127.0.0.1' },
@@ -65,5 +89,9 @@ export function loadConfig(): ApiConfig {
     databaseUrl: env.DEVFLOW_DATABASE_URL,
     redisUrl: env.DEVFLOW_REDIS_URL,
     webhookSecret: env.DEVFLOW_GITHUB_WEBHOOK_SECRET,
+    appUrl: env.DEVFLOW_APP_URL.replace(/\/$/, ''),
+    authSecret: env.DEVFLOW_AUTH_SECRET,
+    githubClientId: env.DEVFLOW_GITHUB_CLIENT_ID,
+    githubClientSecret: env.DEVFLOW_GITHUB_CLIENT_SECRET,
   };
 }

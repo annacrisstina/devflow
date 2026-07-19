@@ -3,8 +3,10 @@ import { createRedisConnection } from '@devflow/queue/connection';
 import { createIngestQueue, type IngestQueue } from '@devflow/queue/ingest';
 import { fastify, type FastifyInstance } from 'fastify';
 
+import { authJsPlugin } from './auth/authjs-plugin.js';
 import type { ApiConfig } from './config.js';
 import { healthRoutes } from './routes/health.js';
+import { meRoutes } from './routes/v1/me.js';
 import { webhookRoutes } from './routes/webhooks.js';
 
 declare module 'fastify' {
@@ -39,6 +41,8 @@ export async function buildApp(config: ApiConfig): Promise<FastifyInstance> {
 
   await app.register(healthRoutes);
   await app.register(webhookRoutes, { webhookSecret: config.webhookSecret });
+  await app.register(authJsPlugin, { config });
+  await app.register(meRoutes);
 
   return app;
 }
