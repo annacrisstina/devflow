@@ -12,6 +12,7 @@
     "dev": "tsx watch src/main.ts"
   },
   "dependencies": {
+    "@devflow/contract": "workspace:^",
     "@devflow/db": "workspace:*",
     "@devflow/queue": "workspace:*",
     "bullmq": "^5.56.0",

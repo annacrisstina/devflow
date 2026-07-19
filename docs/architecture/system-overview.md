@@ -1,60 +1,74 @@
-# System Overview (as of Milestone 3)
+# System Overview (as of Milestone 4)
 
 > Drawn from code that exists, not intentions. Update alongside the milestone that changes it. Decision history: [../adr/](../adr/).
 
 ## Context
 
-DevFlow is a self-hostable CI reliability platform for GitHub Actions: it ingests workflow runs, parses JUnit artifacts, computes deterministic flakiness verdicts, and annotates PRs with advisory check runs.
+DevFlow is a self-hostable CI reliability platform for GitHub Actions: it ingests workflow runs, parses JUnit artifacts, computes deterministic flakiness verdicts, annotates PRs with advisory check runs, and (since M4) surfaces everything in a workspace-scoped dashboard with a live feed and a human-approved quarantine workflow.
 
 ```mermaid
 flowchart LR
-    GH[GitHub] -->|workflow_run webhooks| API[apps/api<br/>Fastify]
+    GH[GitHub] -->|workflow_run + installation webhooks| API[apps/api<br/>Fastify]
     API -->|jobs| Q[(Redis<br/>BullMQ)]
     Q --> W[apps/worker]
     W -->|artifact zips| GH
     W -->|check runs neutral| GH
     API --> PG[(Postgres)]
     W --> PG
+    W -->|PUBLISH live events| PS[(Redis pub/sub)]
+    PS -->|fan out to ws rooms| API
+    WEB[apps/web<br/>React SPA] <-->|/api/v1 + Socket.IO<br/>same origin| API
+    U[Browser] -->|GitHub OAuth via Auth.js| API
 ```
 
-- **`apps/api`** — receives webhooks: constant-time HMAC over raw bytes, verify-before-parse, delivery-GUID-idempotent append-only persist, then enqueue (ADR-0005).
-- **`apps/worker`** — everything else: normalization, artifact fetch/parse, detection, annotation (ADR-0007/0009/0010/0011).
-- **`packages/db`** — Drizzle schema + forward-only migrations; **`packages/queue`** — the api↔worker contract (dispatch, never storage).
+- **`apps/api`** — webhooks (HMAC, verify-before-parse, GUID-idempotent, ADR-0005) + user auth (`@auth/core` mount, database sessions, ADR-0013) + the public `/api/v1` (ADR-0014) + Socket.IO fan-out (ADR-0015) + optional static serving of the built SPA.
+- **`apps/worker`** — normalization, artifact fetch/parse, detection, annotation, installation lifecycle, live-event publishing (ADR-0007/0009/0010/0011/0015).
+- **`apps/web`** — Vite React SPA; consumes only `/api/v1` + the socket, typed by **`packages/contract`** (type-only DTOs/events — how web and api share a wire contract without importing each other).
+- **`packages/db`** — Drizzle schema + forward-only migrations (0000–0003); **`packages/queue`** — api↔worker contract (jobs + the live-events channel name).
 - Dependency direction: apps → packages, never the reverse, never app → app.
+
+## Tenancy (ADR-0012)
+
+`workspaces` ← `workspace_members` (users, owner|member) and `workspaces` ← `installations` (nullable `workspace_id`: **unclaimed** until a workspace connects it via the signed-state GitHub Setup-URL redirect). Everything ingested resolves its tenant at read time: `repositories.installation_id → installations.github_installation_id → installations.workspace_id`. The ingest write path is tenant-unaware by design — data accrues for unclaimed installations and becomes visible on claim (pre-M4 rows were backfilled as unclaimed). Isolation is application-layer: session + membership preHandlers (404, no existence oracle), workspace-scoped queries, and a cross-tenant denial integration test per endpoint; RLS is deferred with a recorded trigger.
 
 ## The processing pipeline (one job)
 
-`process-workflow-run` jobs carry only `{webhookEventId, deliveryId}` — the raw event in Postgres is the source of truth; Redis loss loses scheduling, never data.
+`process-workflow-run` jobs carry only `{webhookEventId, deliveryId}` — the raw event in Postgres is the source of truth; Redis loss loses scheduling, never data. `process-installation-event` jobs (same shape) keep `installations` in sync.
 
 ```mermaid
 flowchart TD
-    J[BullMQ job] --> LE[load-event<br/>read raw webhook_events row]
-    LE --> NR[normalize-run<br/>convergent upserts:<br/>repositories + workflow_runs]
-    NR --> AS[artifact-stage<br/>list -> download zip -> stream-parse JUnit<br/>replace-per-run persist into test_results]
-    AS -->|no_artifacts| END1[mark run, stop]
-    AS -->|succeeded| DS[detection-stage ADR-0010<br/>recompute failed-now and non-healthy-present<br/>90-day history -> score -> upsert test_flake_scores]
-    DS --> AN[annotation-stage ADR-0011<br/>failing tests with non-healthy verdicts?<br/>POST or PATCH neutral check run]
-    AN --> END2[job complete]
+    J[BullMQ job] --> LE[load-event]
+    LE --> NR[normalize-run<br/>+ ensure installations row]
+    NR --> LI1[live: run.ingested]
+    NR --> AS[artifact-stage<br/>list -> download -> parse JUnit -> replace-per-run]
+    AS -->|no_artifacts| END1[mark run, live: run.processed]
+    AS -->|succeeded| DS[detection-stage ADR-0010]
+    DS --> LI2[live: scores.updated]
+    DS --> AN[annotation-stage ADR-0011/0016<br/>non-healthy verdict OR active quarantine<br/>-> POST/PATCH neutral check]
+    AN --> END2[live: run.processed, job complete]
 ```
 
-Failure taxonomy at every stage: `PermanentJobError` → absorbed (run marked `failed`, or annotation skipped with a warning — never retried); anything else → rethrown for BullMQ's exponential backoff (5 attempts, failed set = DLQ). The whole job is convergent under retry: upserts, replace-per-run, recompute-from-history, PATCH-by-stored-id.
+Failure taxonomy unchanged (permanent → absorbed; transient → backoff retry; failed set = DLQ); live publishing is fire-and-forget and can never fail a job.
 
 ## Data model (normalized side)
 
 ```mermaid
 erDiagram
-    webhook_events ||--o{ workflow_runs : "raw_event_id (provenance)"
+    users ||--o{ workspace_members : ""
+    workspaces ||--o{ workspace_members : ""
+    workspaces ||--o{ installations : "claimed (nullable)"
+    users ||--o{ sessions : "Auth.js"
+    webhook_events ||--o{ workflow_runs : "provenance"
     repositories ||--o{ workflow_runs : ""
     workflow_runs ||--o{ run_artifacts : "diagnostics"
     workflow_runs ||--o{ test_results : "replace-per-run"
-    repositories ||--o{ test_flake_scores : "one per test identity"
+    repositories ||--o{ test_flake_scores : "one per identity"
+    repositories ||--o{ quarantine_records : "human decisions"
 ```
 
-- `workflow_runs` is keyed `(github_run_id, run_attempt)` — attempts are separate rows on purpose: same-commit divergence across attempts is the strongest flakiness signal (ADR-0008).
-- `test_results` has deliberately **no** unique identity constraint (parameterized tests repeat names); idempotency is replace-per-run.
-- `test_flake_scores` is **derived data** — rebuildable from `test_results` at any time; evidence counts are stored so any verdict can be explained without recomputation (ADR-0010).
-- Tenancy root until M4: the GitHub App installation (`repositories.installation_id`).
+- `test_flake_scores` is **derived, rebuildable** cache; `quarantine_records` is **durable human truth** — which is why quarantine copies the test identity instead of referencing the score row (ADR-0016).
+- Reads apply **decay-at-read** (ADR-0014): a stored score is worth `s' = e'/(e'+K)` where `e' = K·s/(1−s) · 2^(−Δdays/H)` — evaluated in SQL so ranking, filters and pagination agree; a stale flaky verdict quietly degrades to healthy.
 
 ## Detection in one paragraph (ADR-0010)
 
-Per test identity `(repository, suite, class, name)`: collect adjacent outcome flips — same-commit flips weigh 1.0 (the code didn't change; near-definitional flakiness), cross-commit flips on the default branch weigh 0.25 (the code may be at fault). Each flip decays with a 14-day half-life; `score = evidence/(evidence+2)`; flaky ≥ 0.5, suspected ≥ 0.25. A test that always fails accumulates **zero** evidence (no flips) — broken is not flaky, structurally. Verdicts reach developers only through the advisory `neutral` check run (ADR-0011), which cannot block a merge.
+Per test identity `(repository, suite, class, name)`: collect adjacent outcome flips — same-commit flips weigh 1.0 (the code didn't change; near-definitional flakiness), cross-commit flips on the default branch weigh 0.25. Each flip decays with a 14-day half-life; `score = evidence/(evidence+2)`; flaky ≥ 0.5, suspected ≥ 0.25. A test that always fails accumulates **zero** evidence — broken is not flaky, structurally. Verdicts reach developers through the advisory `neutral` check run (cannot block a merge), the dashboard ranking, and — after a human approves a proposal — the quarantine label ("known flaky, safe to ignore"). The system proposes; only humans quarantine (D14).

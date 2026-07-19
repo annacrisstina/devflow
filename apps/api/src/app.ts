@@ -1,10 +1,19 @@
+import fastifyStatic from '@fastify/static';
 import { createDbClient, type Db } from '@devflow/db/client';
 import { createRedisConnection } from '@devflow/queue/connection';
 import { createIngestQueue, type IngestQueue } from '@devflow/queue/ingest';
 import { fastify, type FastifyInstance } from 'fastify';
 
+import { authJsPlugin } from './auth/authjs-plugin.js';
 import type { ApiConfig } from './config.js';
+import { liveFeedPlugin } from './live/socket-plugin.js';
 import { healthRoutes } from './routes/health.js';
+import { flakyTestRoutes } from './routes/v1/flaky-tests.js';
+import { installationRoutes } from './routes/v1/installations.js';
+import { meRoutes } from './routes/v1/me.js';
+import { quarantineRoutes } from './routes/v1/quarantine.js';
+import { runRoutes } from './routes/v1/runs.js';
+import { workspaceRoutes } from './routes/v1/workspaces.js';
 import { webhookRoutes } from './routes/webhooks.js';
 
 declare module 'fastify' {
@@ -39,6 +48,33 @@ export async function buildApp(config: ApiConfig): Promise<FastifyInstance> {
 
   await app.register(healthRoutes);
   await app.register(webhookRoutes, { webhookSecret: config.webhookSecret });
+  await app.register(authJsPlugin, { config });
+  await app.register(meRoutes);
+  await app.register(workspaceRoutes);
+  await app.register(flakyTestRoutes, { flake: config.flake });
+  await app.register(runRoutes);
+  await app.register(installationRoutes, { config });
+  await app.register(quarantineRoutes, { flake: config.flake });
+  await app.register(liveFeedPlugin, { redisUrl: config.redisUrl });
+
+  // Self-hosted deployments serve the built SPA from the same origin
+  // (ADR-0013's cookie model). Dev and tests leave DEVFLOW_WEB_DIST unset —
+  // Vite's dev server owns the SPA there.
+  if (config.webDist !== undefined) {
+    await app.register(fastifyStatic, { root: config.webDist });
+    app.setNotFoundHandler(async (request, reply) => {
+      // SPA fallback for browser navigation only; API misses stay JSON 404s.
+      const isApiPath =
+        request.url.startsWith('/api') ||
+        request.url.startsWith('/webhooks') ||
+        request.url.startsWith('/healthz') ||
+        request.url.startsWith('/socket.io');
+      if (request.method === 'GET' && !isApiPath) {
+        return reply.sendFile('index.html');
+      }
+      return reply.status(404).send({ error: { code: 'not_found', message: 'Not found.' } });
+    });
+  }
 
   return app;
 }

@@ -5,7 +5,7 @@
 [![CI](https://github.com/annacrisstina/devflow/actions/workflows/ci.yml/badge.svg)](https://github.com/annacrisstina/devflow/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Status: early development.** The core pipeline works end to end: webhook ingestion → artifact parsing → deterministic flakiness scoring → advisory PR check runs (milestones 0–3). No UI yet (dashboard and quarantine workflow are next) — watch the repo if you want to follow along.
+**Status: early development.** The product works end to end: webhook ingestion → artifact parsing → deterministic flakiness scoring → advisory PR check runs, plus a workspace dashboard with GitHub login, a live run feed and a human-approved quarantine workflow (milestones 0–4). Next up: the assistive AI layer and self-hosting hardening — watch the repo if you want to follow along.
 
 ## The problem
 

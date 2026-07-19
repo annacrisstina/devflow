@@ -20,17 +20,15 @@ Monorepo (pnpm + Turborepo), engineering standards (ESLint/Prettier/commitlint/E
 
 `@devflow/queue` (BullMQ contract: dispatch-not-store, retry policy, jobId dedup) + API producer (enqueue after persist, redelivery-as-repair) + normalized schema (`repositories`, `workflow_runs` keyed `(github_run_id, run_attempt)`, `run_artifacts` diagnostics, `test_results` with replace-per-run idempotency) + `@devflow/worker` (bounded concurrency, permanent-vs-transient failure taxonomy, DLQ = BullMQ failed set) + in-house GitHub App client (hand-rolled RS256 JWT, single-flight token cache) + streaming JUnit parser (saxes, fixture corpus, size caps). ADR-0007/0008/0009. 51 tests + live local e2e (stubbed GitHub): signed webhook → 8 correctly classified result rows; redelivery converges. **Deviations (founder-approved):** workspace-tenancy ADR deferred to M4 (installation is tenancy root; seam recorded in ADR-0008); partitioning deferred with explicit triggers; rate-limit handling reactive-only. Real-GitHub verification = founder step ([github-app-setup.md](../github-app-setup.md)). Details: [development-log.md](../development-log.md).
 
-### Milestone 3 — Flakiness detection engine + PR annotation ✅ (2026-07-18, on `feat/flakiness-detection`, PR pending founder review)
+### Milestone 3 — Flakiness detection engine + PR annotation ✅ (2026-07-18, merged to main in PR #8)
 
 The killer feature: deterministic two-signal detection (ADR-0010 — same-commit divergence weight 1.0, default-branch transitions 0.25, exponential decay H=14d, saturating score, under-flagging thresholds via `DEVFLOW_FLAKE_*`) computed incrementally after each run's results persist, plus advisory PR annotation (ADR-0011 — neutral-only check run, silent when nothing to say, PATCH-idempotent). 72 tests + live local e2e (three signed deliveries → divergence → `suspected` 0.33 → check run with evidence table). **Deviation recorded for founder decision:** installation-time backfill deferred — needs its own design (run-history listing, artifact expiry, rate budget); detection works from the first ingested run. Details: [development-log.md](../development-log.md).
 
+### Milestone 4 — Dashboard + live feed + quarantine workflow ✅ (2026-07-19, PR pending)
+
+The product became visible: `apps/web` (Vite React SPA behind the API), Auth.js GitHub login on Fastify (ADR-0013), workspace tenancy with unclaimed-installation backfill and signed-state claiming (ADR-0012), `/api/v1` with decay-at-read scoring (ADR-0014), Socket.IO live run feed over Redis pub/sub (ADR-0015), quarantine propose→human-approve→track with check-run labeling (ADR-0016). 129 tests + a 14/14 scripted live e2e. **Deviations:** no workspace invites (single-member workspaces; schema is team-ready); real-GitHub OAuth/claim verification = founder step (App reconfiguration, github-app-setup.md §3b). Details: [development-log.md](../development-log.md).
+
 ## Future milestones (order is load-bearing)
-
-### Milestone 4 — Dashboard + live feed + quarantine workflow
-
-**Goal:** the product becomes visible and daily-usable.
-**Scope:** `apps/web` (React), Auth.js GitHub login, workspace/repo views, flakiest-tests ranking, Socket.IO live run feed (Redis pub/sub fan-out), quarantine propose→human-approve→track workflow.
-**Depends on:** M3 (needs scores to display); auth lands here because this is the first user-facing surface.
 
 ### Milestone 5 — AI layer (assistive only) + semantic search
 

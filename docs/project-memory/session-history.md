@@ -143,6 +143,22 @@ _The session was interrupted mid-implementation and resumed from repository stat
 
 Notable incidents: drizzle raw-SQL selections bypass column mapping (timestamp came back as a string — caught by integration tests on real Postgres); generation tooling emitted literal NUL bytes where `\u0000` escapes were intended (caught with `cat -A`).
 
+## M3 merge closeout (2026-07-18)
+
+M3 merged to `main` as **PR #8** ("feat(worker): add flakiness detection", merge commit `dc3e41f`) — the **third** merge-commit-not-squash occurrence; the standing recommendation (enforce squash/linear history in branch protection, or consciously amend D11) remains unactioned and should be resolved before M4's PR. CI on merged `main` verified green via the public checks API. One CI wrinkle on the branch: commitlint's **Lint-PR-title** step failed (the quality gates were green — the guard built in M0 for squash-commit subjects did its job even though the eventual merge wasn't a squash); the founder corrected the title and re-triggered with an empty `chore: rerun CI` commit, since a title edit alone doesn't re-run the check. By merging, ADR-0010 and ADR-0011 are founder-approved. Housekeeping completed: all merged remote feature branches deleted (a standing item since M2). Still open: backfill scope decision, Dependabot queue (5 PRs), real-GitHub verification with Checks:write. Next: M4 design step, on the founder's go.
+
+## Session of 2026-07-19 — Milestone 4 design review and implementation
+
+_The session opened with a memory-system stress test the system passed: the founder initially asserted that the M4 architecture review "was already approved", but the repository (handoff, session history, open items) recorded that the design step had not started, and no review document or tenancy/auth ADRs existed anywhere in the repo or its branches. Per "repository documentation is the single source of truth", the contradiction was surfaced instead of implementing against an unrecorded design; the founder then requested the review be produced from repository state alone._
+
+**Design:** the full M4 architecture review was produced and **founder-approved**, with one adjustment: branch from `main`, not from the leftover `docs/m3-post-merge-closeout` branch (whose content the M4 branch folds instead — the simplified post-merge workflow applied). Ratified decisions: Vite React SPA same-origin behind the Fastify API; `@auth/core` mounted on Fastify with database sessions (fallback pre-agreed and founder-gated); workspace tenancy with unclaimed-installation backfill and signed-state claiming; application-layer isolation with an RLS trigger recorded; `/api/v1` conventions including decay-at-read in SQL; proposals-as-query quarantine; best-effort live feed over Redis pub/sub → Socket.IO rooms; five ADRs (0012–0016); single-member workspaces (no invites) in M4.
+
+**Implementation** (eight sequential components on `feat/web-dashboard`, each verified then committed): migration 0003 + ADR-0012 → the Auth.js risk spike (succeeded; fallback unused) + ADR-0013 → `@devflow/contract` + v1 read API + ADR-0014 → installation claiming + `installation` webhook job → quarantine + annotation labeling + ADR-0016 → live feed + ADR-0015 → `apps/web` → scripted e2e + this docs pass. 129 tests green; e2e 14/14 (claim → divergences → 0.3333 suspected → flaky 0.6 → approve quarantine → "1 quarantined" neutral check → workspace-scoped socket events → redelivery convergence).
+
+Notable incidents, all now recorded as lessons: the e2e exposed a real SPA bug (JSON content-type on body-less POST → Fastify 400) that inject()-based tests cannot catch; a poll treating `rowCount: 0` as truthy waited for nothing and manufactured impossible-looking state; the M3 leaked-process incident recurred via orphaned `tsx` grandchildren and is now handled structurally (detached process groups + port preflight); exactly two fresh divergences score a hair below the flaky threshold — the under-flagging bias made visible.
+
+**Recorded for the founder:** D11 squash decision still open (needed before this PR); GitHub App reconfiguration for login/claiming (github-app-setup.md §3b) and the real-GitHub verification pass; backfill decision still parked (M6 recommended); both stale closeout branches deletable unmerged.
+
 ## Standing outcomes of this day
 
 1. Product locked: CI reliability platform (flaky tests) for GitHub Actions.

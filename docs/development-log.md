@@ -235,7 +235,70 @@ The detection model itself (evidence weighting, decay, saturation, false-positiv
 - **Milestone 3: complete, verified end-to-end locally; awaiting founder review + PR.** Branch `feat/flakiness-detection`; push/PR/merge are founder actions.
 - Real-GitHub verification (App with Checks:write on a live repo) remains the standing founder step — now it also starts producing real annotations.
 - **Next milestone:** M4 — dashboard + live feed + quarantine workflow (needs the workspace-tenancy and auth ADRs). Backfill decision pending (see deviations).
+- _Post-merge addendum: merged to `main` in **PR #8** ("feat(worker): add flakiness detection", merge commit `dc3e41f` — third merge-commit-not-squash occurrence; the D11 branch-protection decision still stands open). CI on merged `main` green, verified via the public checks API. One CI incident on the branch: the commitlint job failed at the **Lint-PR-title step** (the quality job was green); the title was corrected and an empty `chore: rerun CI` commit re-triggered the check — a title edit alone does not re-run it. That commit now sits in `main` history via the merge. ADR-0010/0011 are approved as merged. Housekeeping done by the founder: all merged remote feature branches (M1–M3) deleted._
 
 ---
 
-_(Next entry: Milestone 4, appended when completed.)_
+## Milestone 4 — Dashboard, live feed, quarantine workflow
+
+- **Date:** 2026-07-19
+- **Milestone:** 4
+- **Goal:** the product becomes visible and daily-usable — GitHub login, workspace tenancy over the existing ingestion, the flakiest-tests ranking, a live run feed, and the propose→human-approve→track quarantine loop. First user-facing surface; the two long-deferred ADRs (tenancy D8, auth D3) land here.
+
+### Completed work
+
+- **Tenancy (ADR-0012):** migration 0003 — Auth.js tables (`users`/`accounts`/`sessions`/`verification_tokens`, text UUID ids per the adapter contract), `workspaces`, `workspace_members` (owner|member, unique pair), `installations` (unique GitHub id, **nullable workspace_id = unclaimed**, `uninstalled_at`), `quarantine_records` (partial unique index on active identities) — plus a hand-written backfill turning every pre-M4 `repositories.installation_id` into an unclaimed installation. Ingest write path untouched; tenancy resolves at read time via repository → installation → workspace. Isolation is application-layer (RLS deferred with a written trigger): session+membership preHandlers (404, no existence oracle) + a cross-tenant denial integration test on every endpoint.
+- **Auth (ADR-0013, the milestone's risk spike, built first):** `@auth/core` mounted on Fastify with a ~40-line shim (the `@auth/express` pattern; no official Fastify binding exists), Drizzle adapter, **database sessions** (cookie value = revocable session row), the GitHub App's own OAuth credentials (no second OAuth App). API request auth is one indexed join on the session cookie. The pre-agreed fallback (hand-rolled OAuth flow) was not needed.
+- **Public API (ADR-0014):** `/api/v1` — me, workspaces (create/detail/repositories), flaky-tests ranking + detail-with-history, runs (with test counts), quarantine, installation claiming. Conventions fixed now that the first endpoints exist: URL versioning, `{error:{code,message}}`, limit/offset+total on unbounded lists. **Decay-at-read closes M3's stale-score debt:** stored scores are unwound to evidence, decayed with the same half-life, re-saturated — computed **in SQL** so ranking order, verdict filters and pagination are consistent on the decayed value; TS reference implementation unit-pinned, SQL ≡ TS asserted by an integration test. New type-only `@devflow/contract` package shares DTOs and event shapes with the web app.
+- **Installation claiming:** signed-state install link (HMAC over `{workspaceId,userId,exp}`) → GitHub's Setup URL redirect → claim bound to both the state and the live session; unclaimed/foreign/fresh-install cases all covered. `installation` webhook events flow through the existing raw-persist path into a second job type; the worker keeps `installations` in sync (uninstall marks, never deletes). `normalize-run` guarantees an installations row for every installation the pipeline ever sees.
+- **Quarantine (ADR-0016):** proposals are a **query** (effective-verdict flaky, no active/dismissed record) — no automated writer of quarantine state exists; decisions are durable rows with who/when/why (approve→active, dismiss→suppressed-but-reversible, lift→history). The annotation stage labels failures of actively-quarantined tests ("human-approved quarantine") with the conclusion still hardcoded `neutral` — ADR-0011's advisory guarantee untouched.
+- **Live feed (ADR-0015):** worker publishes `run.ingested`/`run.processed`/`scores.updated` envelopes (workspace resolved at publish time; unclaimed installations emit nothing) over Redis pub/sub on dedicated connections; the API's Socket.IO server authenticates handshakes with the session cookie and fans out to `ws:<id>` rooms. Explicitly best-effort: REST is the source of truth, events only trigger refetches — which keeps the roadmap's polling cut line a one-line degradation.
+- **`apps/web`:** Vite + React (strict TS) + react-router + TanStack Query + Tailwind; same-origin behind the API (dev: Vite proxy; prod: `@fastify/static` behind `DEVFLOW_WEB_DIST` with SPA fallback). Views: login → workspace create/select → connect installation → repositories → flakiest ranking → test detail → live runs → quarantine tabs (Proposed/Active/Dismissed).
+
+### Verification (all run, not asserted)
+
+- **129 automated tests green across the workspace** (was 72): db tenancy/backfill/partial-index suites, auth mount + guards, v1 contract + cross-tenant denial per endpoint, decay arithmetic pinned to ADR-0010 reference numbers + SQL≡TS equality, claiming (signed state round-trip/tamper/expiry/theft-refusal), quarantine state machine, annotation labeling, live publisher + Socket.IO room isolation on real Redis. Full `pnpm verify` green (10 turbo tasks).
+- **Scripted live e2e, 14/14 checks** (real API + worker + Postgres + Redis + stub GitHub API): claim link → signed-state setup callback binds the installation → six signed deliveries build divergences → score **0.3333/suspected** matching ADR-0010 exactly → neutral check "1 suspected-flaky among 1 failing test" → third divergence promotes to **flaky 0.6** → ranking/runs/history endpoints serve it → proposal appears → approve → next failure's check reads "**1 quarantined** among 1 failing test" with `human-approved quarantine` evidence, conclusion still neutral → 21 live socket events, all workspace-scoped → redelivery converges (one run row, no duplicate scores).
+- Static serving verified live (SPA at `/`, client-route fallback, JSON 401/404 on API paths).
+
+### ADRs created
+
+- ADR-0012: Workspace multi-tenancy (rejected: RLS-now, tenancy-in-ingest-path, per-user tenancy, auto-created workspaces, org-membership claiming).
+- ADR-0013: Auth.js on Fastify with database sessions (rejected: hand-rolled OAuth, JWT sessions, auth-in-web-app, managed IdPs, community wrappers).
+- ADR-0014: Public API conventions + decay-at-read (rejected: header versioning, stored-verdict filtering, decay-in-TS-after-fetch, background recompute jobs, RFC 7807, codegen).
+- ADR-0015: Live feed transport (rejected: Redis adapter now, LISTEN/NOTIFY, queue-as-transport, SSE/raw ws, durable replay).
+- ADR-0016: Quarantine workflow (rejected: materialized proposals, quarantine-on-the-score-cache, auto-lift, mutable single row, CI-modifying quarantine).
+
+### Deviations (recorded)
+
+- **No workspace invites:** M4 ships single-member workspaces; the members/role schema makes teams additive, but an invite flow needs email or link infrastructure — deliberately post-MVP, stated in ADR-0012.
+- **In-browser GitHub OAuth + live claim against real GitHub remain founder verification steps** (need the App's client secret and reconfiguration — steps documented in github-app-setup.md §3b). The e2e covers the same code paths with a scripted session and stub GitHub, per the M2/M3 stub-first precedent.
+- Exactly two fresh divergences score marginally _below_ the 0.5 flaky threshold (`2d/(2d+2)`, d<1) — discovered writing the e2e; recorded as the under-flagging bias working as designed, not a bug.
+
+### Lessons learned
+
+1. **The e2e caught a real client bug the unit tests couldn't:** `fetch` with a JSON content-type and no body is a 400 in Fastify — the SPA's API wrapper and the e2e harness both had it. Contract tests exercise routes with inject(); only the full HTTP path exposed it.
+2. **A poll that treats `rowCount: 0` as truthy waits for nothing** — the first e2e "passed" its waits instantly and produced impossible-looking state (scores vanishing, attempts out of order) that all traced to one falsy-check bug. Polls must check the value, not just non-undefined.
+3. **The leaked-process lesson, fourth edition, now structural:** killing a `pnpm exec` child orphans the `tsx` grandchild (M3's exact incident). The e2e now spawns detached process groups, kills the group, and preflights its ports before starting.
+4. **GitHub artifacts list per run, not per attempt** — a stub keyed by run id silently serves attempt 2's artifact for attempt 1's job. The e2e models divergence across runs on the same sha (which is also ADR-0010's actual definition).
+
+### Technical debt introduced (accepted, tracked)
+
+- Effective-score SQL appears in ORDER BY/WHERE per list request — fine at MVP scale; a computed/cached column is the recorded escape hatch (measure first).
+- Socket rooms are joined at connect time; new memberships apply on reconnect (ADR-0015).
+- Duplicate `dismissed` rows are possible under concurrent dismissal (no unique constraint; harmless history noise, ADR-0016).
+- The web app has no automated UI tests (lowest MVP priority, stated in its README); `verify` covers typecheck+build, correctness lives in API contract tests.
+
+### Interview topics covered by this milestone
+
+Multi-tenancy design (claiming via signed state, unclaimed-data backfill, app-layer isolation vs RLS with a written trigger), mounting a framework-agnostic auth engine (Request/Response shims, database vs JWT sessions), read-model design (decay-at-read in SQL, cache-vs-derived-data honesty), human-in-the-loop workflow structure (proposals-as-queries), real-time fan-out (pub/sub topology, best-effort contracts, why not the Redis adapter yet). Details: [project-memory/interview-notes.md](project-memory/interview-notes.md) §10.
+
+### Status & next
+
+- **Milestone 4: complete, verified end-to-end locally; awaiting founder review + PR.** Branch `feat/web-dashboard` (includes the folded M3 closeout docs — `docs/m3-post-merge-closeout` can be deleted unmerged); push/PR/merge are founder actions.
+- Founder steps before/at merge: D11 squash decision (three merge commits and counting), GitHub App reconfiguration (§3b: OAuth callback + client secret, Setup URL, `installation` events), then a real-GitHub login + claim + dogfood pass.
+- **Next milestone:** M5 — AI layer (assistive only) + semantic search (AI-boundary ADR due), or M6 first if the founder prefers hardening before AI. Backfill decision still open (M6 recommended).
+
+---
+
+_(Next entry: Milestone 5, appended when completed.)_

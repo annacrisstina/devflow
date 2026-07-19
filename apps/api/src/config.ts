@@ -2,6 +2,8 @@ import { fileURLToPath } from 'node:url';
 
 import { envSchema } from 'env-schema';
 
+import type { FlakeReadConfig } from './flake/effective-score.js';
+
 /**
  * All configuration enters through here, validated at boot: a misconfigured
  * process must die immediately with a precise error, not limp along and fail
@@ -14,6 +16,26 @@ export type ApiConfig = {
   databaseUrl: string;
   redisUrl: string;
   webhookSecret: string;
+  /** Public base URL of this deployment (OAuth callbacks, signed links). */
+  appUrl: string;
+  /** Auth.js cookie/token secret + HMAC key for signed install-state (ADR-0013). */
+  authSecret: string;
+  /** The GitHub App's own OAuth credentials (user login, ADR-0013). */
+  githubClientId: string;
+  githubClientSecret: string;
+  /** The App's public slug — builds the install link (ADR-0012). */
+  githubAppSlug: string;
+  /**
+   * Absolute path of the built SPA (apps/web/dist). Optional: unset in dev
+   * (Vite serves the SPA) and in tests; set in self-hosted deployments so
+   * the API serves the dashboard from the same origin.
+   */
+  webDist: string | undefined;
+  /**
+   * Read-model twin of the worker's detection knobs (ADR-0014): decay-at-read
+   * uses the same env variables, so tuning detection tunes reads with it.
+   */
+  flake: FlakeReadConfig;
 };
 
 type RawEnv = {
@@ -23,15 +45,41 @@ type RawEnv = {
   DEVFLOW_DATABASE_URL: string;
   DEVFLOW_REDIS_URL: string;
   DEVFLOW_GITHUB_WEBHOOK_SECRET: string;
+  DEVFLOW_APP_URL: string;
+  DEVFLOW_AUTH_SECRET: string;
+  DEVFLOW_GITHUB_CLIENT_ID: string;
+  DEVFLOW_GITHUB_CLIENT_SECRET: string;
+  DEVFLOW_GITHUB_APP_SLUG: string;
+  DEVFLOW_WEB_DIST?: string;
+  DEVFLOW_FLAKE_HALF_LIFE_DAYS: number;
+  DEVFLOW_FLAKE_SATURATION_K: number;
+  DEVFLOW_FLAKE_FLAKY_THRESHOLD: number;
+  DEVFLOW_FLAKE_SUSPECT_THRESHOLD: number;
 };
 
 const schema = {
   type: 'object',
-  // No default for the webhook secret, ever: a guessable default would turn
-  // HMAC verification into theater. Boot fails loudly without it.
-  required: ['DEVFLOW_GITHUB_WEBHOOK_SECRET'],
+  // No defaults for secrets, ever: a guessable default would turn
+  // authentication into theater. Boot fails loudly without them.
+  required: [
+    'DEVFLOW_GITHUB_WEBHOOK_SECRET',
+    'DEVFLOW_AUTH_SECRET',
+    'DEVFLOW_GITHUB_CLIENT_ID',
+    'DEVFLOW_GITHUB_CLIENT_SECRET',
+    'DEVFLOW_GITHUB_APP_SLUG',
+  ],
   properties: {
     DEVFLOW_GITHUB_WEBHOOK_SECRET: { type: 'string', minLength: 1 },
+    // 32+ chars: this keys both Auth.js session cookies and the signed
+    // install-state HMAC; a short secret weakens every session at once.
+    DEVFLOW_AUTH_SECRET: { type: 'string', minLength: 32 },
+    DEVFLOW_GITHUB_CLIENT_ID: { type: 'string', minLength: 1 },
+    DEVFLOW_GITHUB_CLIENT_SECRET: { type: 'string', minLength: 1 },
+    DEVFLOW_GITHUB_APP_SLUG: { type: 'string', minLength: 1 },
+    DEVFLOW_WEB_DIST: { type: 'string' },
+    // Loopback default matches the dev API address; a deployment behind a
+    // domain must set this or OAuth callbacks will point at localhost.
+    DEVFLOW_APP_URL: { type: 'string', default: 'http://127.0.0.1:3001' },
     // Loopback by default: exposing the dev API to the network must be an
     // explicit choice (compose-based self-hosting overrides this in M6).
     DEVFLOW_API_HOST: { type: 'string', default: '127.0.0.1' },
@@ -47,6 +95,22 @@ const schema = {
       default: 'postgresql://devflow:devflow_local@127.0.0.1:5432/devflow',
     },
     DEVFLOW_REDIS_URL: { type: 'string', default: 'redis://127.0.0.1:6379' },
+    // Mirror of the worker's detection knobs (ADR-0010 reference defaults);
+    // exclusiveMinimum guards the divisions in the decay arithmetic.
+    DEVFLOW_FLAKE_HALF_LIFE_DAYS: { type: 'number', default: 14, exclusiveMinimum: 0 },
+    DEVFLOW_FLAKE_SATURATION_K: { type: 'number', default: 2.0, exclusiveMinimum: 0 },
+    DEVFLOW_FLAKE_FLAKY_THRESHOLD: {
+      type: 'number',
+      default: 0.5,
+      exclusiveMinimum: 0,
+      maximum: 1,
+    },
+    DEVFLOW_FLAKE_SUSPECT_THRESHOLD: {
+      type: 'number',
+      default: 0.25,
+      exclusiveMinimum: 0,
+      maximum: 1,
+    },
   },
 } as const;
 
@@ -58,6 +122,14 @@ export function loadConfig(): ApiConfig {
     // must carry structured logs only, not dotenv's banner.
     dotenv: { path: fileURLToPath(new URL('../../../.env', import.meta.url)), quiet: true },
   });
+  // Cross-field constraint JSON Schema can't express (same check as the
+  // worker): the verdict bands must not invert.
+  if (env.DEVFLOW_FLAKE_SUSPECT_THRESHOLD >= env.DEVFLOW_FLAKE_FLAKY_THRESHOLD) {
+    throw new Error(
+      'DEVFLOW_FLAKE_SUSPECT_THRESHOLD must be strictly below DEVFLOW_FLAKE_FLAKY_THRESHOLD',
+    );
+  }
+
   return {
     host: env.DEVFLOW_API_HOST,
     port: env.DEVFLOW_API_PORT,
@@ -65,5 +137,17 @@ export function loadConfig(): ApiConfig {
     databaseUrl: env.DEVFLOW_DATABASE_URL,
     redisUrl: env.DEVFLOW_REDIS_URL,
     webhookSecret: env.DEVFLOW_GITHUB_WEBHOOK_SECRET,
+    appUrl: env.DEVFLOW_APP_URL.replace(/\/$/, ''),
+    authSecret: env.DEVFLOW_AUTH_SECRET,
+    githubClientId: env.DEVFLOW_GITHUB_CLIENT_ID,
+    githubClientSecret: env.DEVFLOW_GITHUB_CLIENT_SECRET,
+    githubAppSlug: env.DEVFLOW_GITHUB_APP_SLUG,
+    webDist: env.DEVFLOW_WEB_DIST,
+    flake: {
+      halfLifeDays: env.DEVFLOW_FLAKE_HALF_LIFE_DAYS,
+      saturationK: env.DEVFLOW_FLAKE_SATURATION_K,
+      flakyThreshold: env.DEVFLOW_FLAKE_FLAKY_THRESHOLD,
+      suspectThreshold: env.DEVFLOW_FLAKE_SUSPECT_THRESHOLD,
+    },
   };
 }

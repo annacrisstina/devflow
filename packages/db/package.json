@@ -21,6 +21,18 @@
     "./schema/flake-scores": {
       "types": "./dist/schema/flake-scores.d.ts",
       "default": "./dist/schema/flake-scores.js"
+    },
+    "./schema/auth": {
+      "types": "./dist/schema/auth.d.ts",
+      "default": "./dist/schema/auth.js"
+    },
+    "./schema/tenancy": {
+      "types": "./dist/schema/tenancy.d.ts",
+      "default": "./dist/schema/tenancy.js"
+    },
+    "./schema/quarantine": {
+      "types": "./dist/schema/quarantine.d.ts",
+      "default": "./dist/schema/quarantine.js"
     }
   },
   "files": [

@@ -42,7 +42,7 @@ GitHub (webhooks: workflow_run, check_run, ...)      GitHub (REST/GraphQL: artif
 - **Webhook ingress is hostile territory:** every payload is unauthenticated until its HMAC signature (`X-Hub-Signature-256`) is verified against the webhook secret, with a constant-time comparison. Unverified payloads are rejected before parsing.
 - **Tokens are short-lived and scoped:** GitHub App installation tokens (≤1h) are cached but never persisted long-term; the app private key is the crown jewel (env-injected, never in the repo, never logged).
 - **Secrets management:** environment variables only (12-factor). `.env` is gitignored; `.env.example` documents every variable with safe defaults. No secrets in compose files, CI logs or error messages.
-- **Multi-tenant isolation is a schema-level concern:** every tenant-owned row carries its workspace ownership; enforcement strategy (RLS vs application-layer scoping) is an explicit upcoming ADR — the assumption is that isolation must not depend on developer discipline alone.
+- **Multi-tenant isolation is a schema-level concern:** every tenant-owned row reaches its workspace through the installation chain; enforcement is application-layer scoping with per-endpoint cross-tenant denial tests, RLS deferred with an explicit trigger (decided in ADR-0012) — isolation must not depend on developer discipline alone.
 - **Supply chain:** SHA-pinned actions, Dependabot, pnpm script-blocking (see engineering-decisions.md D13).
 
 ## Deployment philosophy
@@ -56,7 +56,7 @@ GitHub (webhooks: workflow_run, check_run, ...)      GitHub (REST/GraphQL: artif
 - **Boring, explicit REST** for the public surface; JSON Schema validation at the Fastify boundary (invalid input never reaches business logic).
 - **Webhooks in, webhooks verified; APIs out, APIs rate-limit-aware.** All GitHub REST/GraphQL calls go through a client wrapper that understands rate-limit headers and backs off with jitter — hitting a rate limit is an expected state, not an error.
 - **Idempotency is the default posture:** webhook delivery is at-least-once and out-of-order; every consumer must tolerate duplicates (delivery GUID as idempotency key) and late arrivals (reconciliation over assumed ordering).
-- Versioning, pagination and error-shape conventions get decided (and ADR'd) when the first public API endpoint lands — not before.
+- Versioning, pagination and error-shape conventions were decided when the first public endpoints landed (M4, ADR-0014): `/api/v1`, `{error:{code,message}}`, limit/offset with totals.
 
 ## Database philosophy
 

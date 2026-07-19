@@ -5,6 +5,8 @@ Internal shared packages, published nowhere — consumed only via the pnpm works
 Current:
 
 - [`@devflow/db`](db/README.md) — Drizzle schema, migrations, connection factory.
+- [`@devflow/queue`](queue/README.md) — the api↔worker Redis contract: job payloads, retry policy, connection factory, the live-events channel.
+- [`@devflow/contract`](contract/README.md) — type-only wire contract between api and web (`/api/v1` DTOs, live-event envelopes).
 
 Planned (added when first needed, not scaffolded in advance):
 

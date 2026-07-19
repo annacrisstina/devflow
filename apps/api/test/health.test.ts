@@ -1,22 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { buildApp } from '../src/app.js';
-import type { ApiConfig } from '../src/config.js';
-
-const DATABASE_URL =
-  process.env.DEVFLOW_DATABASE_URL ?? 'postgresql://devflow:devflow_local@127.0.0.1:5432/devflow';
-
-function testConfig(overrides: Partial<ApiConfig> = {}): ApiConfig {
-  return {
-    host: '127.0.0.1',
-    port: 0,
-    logLevel: 'silent',
-    databaseUrl: DATABASE_URL,
-    redisUrl: process.env.DEVFLOW_REDIS_URL ?? 'redis://127.0.0.1:6379',
-    webhookSecret: 'test-webhook-secret',
-    ...overrides,
-  };
-}
+import { testConfig } from './test-config.js';
 
 describe('GET /healthz', () => {
   describe('with a reachable database', () => {

@@ -9,6 +9,7 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { buildApp } from '../src/app.js';
+import { testConfig } from './test-config.js';
 
 const BASE_URL =
   process.env.DEVFLOW_DATABASE_URL ?? 'postgresql://devflow:devflow_local@127.0.0.1:5432/devflow';
@@ -60,14 +61,7 @@ beforeAll(async () => {
   });
   await migrationClient.close();
 
-  app = await buildApp({
-    host: '127.0.0.1',
-    port: 0,
-    logLevel: 'silent',
-    databaseUrl: testDbUrl,
-    redisUrl: process.env.DEVFLOW_REDIS_URL ?? 'redis://127.0.0.1:6379',
-    webhookSecret: SECRET,
-  });
+  app = await buildApp(testConfig({ databaseUrl: testDbUrl, webhookSecret: SECRET }));
   await app.ingestQueue.obliterate({ force: true });
 });
 

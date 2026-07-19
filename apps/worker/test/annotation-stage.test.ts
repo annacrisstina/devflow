@@ -1,5 +1,7 @@
 import type { DbClient } from '@devflow/db/client';
 import { testFlakeScores } from '@devflow/db/schema/flake-scores';
+import { quarantineRecords } from '@devflow/db/schema/quarantine';
+import { users } from '@devflow/db/schema/auth';
 import { repositories, testResults, workflowRuns } from '@devflow/db/schema/runs';
 import { webhookEvents } from '@devflow/db/schema/webhook-events';
 import { eq } from 'drizzle-orm';
@@ -192,6 +194,57 @@ describe('annotationStage', () => {
     await stage()(run, log);
     expect(created).toHaveLength(0);
     expect(updated).toHaveLength(0);
+  });
+
+  it('labels an actively quarantined failing test as quarantined (conclusion stays neutral)', async () => {
+    const user = await client.db.insert(users).values({ name: 'Ana' }).returning();
+    await seedScore('quarantined_scored', 'flaky', 0.71);
+    await client.db.insert(quarantineRecords).values([
+      {
+        repositoryId,
+        suiteName: 'suite',
+        className: 'Class',
+        testName: 'quarantined_scored',
+        status: 'active',
+        createdBy: user[0]!.id,
+      },
+      {
+        repositoryId,
+        suiteName: 'suite',
+        className: 'Class',
+        testName: 'quarantined_unscored',
+        status: 'active',
+        createdBy: user[0]!.id,
+      },
+      {
+        repositoryId,
+        suiteName: 'suite',
+        className: 'Class',
+        testName: 'lifted_not_labeled',
+        status: 'lifted',
+        createdBy: user[0]!.id,
+      },
+    ]);
+    const run = await seedRun([
+      { testName: 'quarantined_scored', status: 'failed' },
+      { testName: 'quarantined_unscored', status: 'failed' },
+      { testName: 'lifted_not_labeled', status: 'failed' },
+    ]);
+
+    await stage()(run, log);
+
+    expect(created).toHaveLength(1);
+    const params = created[0]!.params;
+    // Advisory invariant untouched: quarantine changes content, never the
+    // conclusion (ADR-0011 + ADR-0016).
+    expect(params.conclusion).toBe('neutral');
+    expect(params.output.title).toContain('2 quarantined');
+    expect(params.output.summary).toContain('flaky · quarantined');
+    expect(params.output.summary).toContain('human-approved quarantine');
+    // Quarantine labels even without a score row (score column shows a dash).
+    expect(params.output.summary).toContain('quarantined_unscored');
+    // A lifted record no longer labels anything.
+    expect(params.output.summary).not.toContain('lifted_not_labeled');
   });
 
   it('clears an existing check when a reprocess no longer flags anything', async () => {

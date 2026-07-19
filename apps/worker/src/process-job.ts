@@ -7,6 +7,7 @@ import type { Logger } from 'pino';
 import type { AnnotationStage } from './annotation/annotation-stage.js';
 import type { DetectionStage } from './detection/detection-stage.js';
 import { PermanentJobError } from './errors.js';
+import type { LivePublisher } from './live/publisher.js';
 import type { ArtifactStageOutcome } from './pipeline/artifact-stage.js';
 import { loadEvent } from './pipeline/load-event.js';
 import { normalizeRun, type NormalizedRun } from './pipeline/normalize-run.js';
@@ -25,6 +26,11 @@ export type ProcessJobDeps = {
   detectionStage: DetectionStage;
   /** Advisory check-run write-back (ADR-0011); runs after detection. */
   annotationStage: AnnotationStage;
+  /**
+   * Live-feed publisher (ADR-0015); optional so queue/normalize plumbing
+   * tests need no Redis. Fire-and-forget: never fails the job.
+   */
+  live?: LivePublisher;
 };
 
 /**
@@ -51,6 +57,7 @@ export async function processJob(deps: ProcessJobDeps, job: ProcessWorkflowRunJo
     { githubRunId: run.githubRunId.toString(), runAttempt: run.runAttempt },
     'run normalized',
   );
+  await deps.live?.runIngested(run, log);
 
   let outcome: ArtifactStageOutcome;
   try {
@@ -62,6 +69,7 @@ export async function processJob(deps: ProcessJobDeps, job: ProcessWorkflowRunJo
         .set({ processingStatus: 'failed', processedAt: new Date() })
         .where(eq(workflowRuns.id, run.workflowRunId));
       log.warn({ reason: error.message }, 'artifact processing failed permanently');
+      await deps.live?.runProcessed(run, 'failed', log);
       return;
     }
     throw error;
@@ -70,8 +78,12 @@ export async function processJob(deps: ProcessJobDeps, job: ProcessWorkflowRunJo
   // A run without artifacts changed no test history: nothing to reassess.
   // Detection errors propagate as transient — the whole job is convergent
   // under retry (upserts, replace-per-run, recompute-from-history).
-  if (outcome !== 'succeeded') return;
+  if (outcome !== 'succeeded') {
+    await deps.live?.runProcessed(run, outcome, log);
+    return;
+  }
   await deps.detectionStage(run, log);
+  await deps.live?.scoresUpdated(run, log);
 
   // Results and scores are durable by now: a permanently failed annotation is
   // absorbed (never marks ingestion failed), a transient one retries the
@@ -81,8 +93,10 @@ export async function processJob(deps: ProcessJobDeps, job: ProcessWorkflowRunJo
   } catch (error) {
     if (error instanceof PermanentJobError) {
       log.warn({ reason: error.message }, 'flake annotation failed permanently');
+      await deps.live?.runProcessed(run, 'succeeded', log);
       return;
     }
     throw error;
   }
+  await deps.live?.runProcessed(run, 'succeeded', log);
 }
