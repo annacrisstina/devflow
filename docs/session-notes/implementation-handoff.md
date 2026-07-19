@@ -2,62 +2,59 @@
 
 > **The operational handoff.** Always reflects the latest repository state; updated at the end of EVERY working session. A new engineer (human or AI) should be able to continue from this file alone, without any chat history. Background knowledge lives in [../project-memory/](../project-memory/); read [project-overview.md](../project-memory/project-overview.md) and [implementation-rules.md](../project-memory/implementation-rules.md) first.
 
-**Last updated:** 2026-07-19 (M4 implemented on `feat/web-dashboard`; awaiting founder review + PR)
+**Last updated:** 2026-07-19 (M5 implemented on `feat/ai-insights`; awaiting founder review + PR)
 
 ## Current repository status
 
-- **Branch `feat/web-dashboard`** (created from `main` = `dc3e41f`, the M3 merge): **Milestone 4 complete** — code, tests, ADRs 0012–0016, and all documentation, committed and verified. **Push/PR/merge are founder actions** (no git credentials on this machine).
-- The branch also **folds the former `docs/m3-post-merge-closeout` content** (M3 post-merge facts + the simplified-closeout amendment) — that branch and the old `chore/m2-post-merge-closeout` can be **deleted unmerged**; nothing on them is unique anymore.
-- Milestones 0–3 merged on `main` (PRs #6/#7/#8); CI on `main` green. M4's architecture review was founder-approved 2026-07-19 before implementation started (design step honored).
-- Local infra: compose healthy; migrations 0000–**0003** apply cleanly; no leftover e2e state (`devflow_e2e` dropped, Redis logical db 5 flushed, no leaked processes — verified via `ps`, the M3 lesson).
-- **Dependabot queue (5 open PRs, unchanged):** ESLint 10, TypeScript 6, commitlint majors ×2, actions group — review individually per D13. Note: ESLint 10 / TS 6 now also touch `apps/web`.
+- **Branch `feat/ai-insights`** (from `main` = `0abdd19`): **Milestone 5 complete** — code, 158 tests, ADRs 0017–0019, all documentation, committed and verified. **Push/PR/merge are founder actions.**
+- **M4 post-merge facts (recorded here per the no-closeout-branch rule):** merged to `main` as **PR #9** (merge commit `0abdd19` — the _fourth_ merge-commit-not-squash; the founder has ruled D11 a governance matter, not an implementation blocker: ignore during milestones). CI on merged `main` verified green via the public checks API. The remote feature branch was deleted; the two stale local closeout branches were deleted at M5 branch setup (their content lives in `main`).
+- Milestones 0–4 merged (PRs #6–#9). M5's architecture review was founder-approved 2026-07-19 with one early-validation gate (local embedding performance) — **passed with measured numbers** (below).
+- Local infra: compose healthy; migrations 0000–**0004** apply cleanly (0004 creates the `vector` extension); no leftover e2e state (db dropped, Redis db 5 flushed, `ps` clean).
+- **Dependabot queue (5 open PRs, unchanged),** rebased onto current main; individually per D13.
 
-## What Milestone 4 added (branch `feat/web-dashboard`)
+## What Milestone 5 added (branch `feat/ai-insights`)
 
-- **Migration 0003 + ADR-0012:** Auth.js tables (text UUID ids — adapter contract), `workspaces`, `workspace_members`, `installations` (nullable `workspace_id` = unclaimed; backfilled from pre-M4 `repositories.installation_id`), `quarantine_records` (partial unique index on active identities). Tenancy resolves at read time (repo → installation → workspace); ingest path untouched; isolation is app-layer with a cross-tenant denial test per endpoint (RLS deferred with a written trigger).
-- **ADR-0013:** `@auth/core` mounted on Fastify (`apps/api/src/auth/`), database sessions, GitHub App's own OAuth credentials. Session auth for API routes = one indexed join on the cookie.
-- **ADR-0014 + `/api/v1`:** me / workspaces / repositories / flaky-tests (+detail w/ history) / runs / quarantine / claiming. `{error:{code,message}}`, limit-offset+total, bigints as strings, ISO timestamps (`@devflow/contract` is the shared type-only wire contract). **Decay-at-read** (closes the M3 stale-score debt): evidence-unwind → half-life decay → re-saturate, computed in SQL for correct ordering/filtering/pagination; SQL ≡ TS pinned by tests; same `DEVFLOW_FLAKE_*` knobs, now read by the API too.
-- **Claiming:** POST `/api/v1/workspaces/:id/installations/link` → signed state → GitHub install page → Setup URL callback `/api/github/setup` verifies state+session and binds the installation. `installation` webhooks → `PROCESS_INSTALLATION_EVENT` job → worker syncs account fields / `uninstalled_at`.
-- **ADR-0016 quarantine:** proposals are a query (effective-flaky ∧ no active/dismissed record); human decisions are rows; annotation stage labels actively-quarantined failing tests — conclusion stays `neutral` (ADR-0011 intact).
-- **ADR-0015 live feed:** worker publishes to `devflow:live-events` (workspace resolved at publish; fire-and-forget), API Socket.IO fans out to `ws:<id>` rooms; handshake auth = session cookie; best-effort by contract (REST is truth; polling cut line stays one line).
-- **`apps/web`:** Vite React SPA (react-router, TanStack Query, Tailwind), same-origin (dev proxy / prod `@fastify/static` behind `DEVFLOW_WEB_DIST`). Login → create workspace → connect → repos → ranking → detail → live runs → quarantine tabs.
-- **New env** (`.env.example` documents all): `DEVFLOW_APP_URL`, `DEVFLOW_AUTH_SECRET`, `DEVFLOW_GITHUB_CLIENT_ID/SECRET`, `DEVFLOW_GITHUB_APP_SLUG`, optional `DEVFLOW_WEB_DIST`.
+- **`@devflow/ai` (ADR-0017):** the amputable AI layer — MiniLM embedder (quantized ONNX, 384 dims, lazy), failure-text normalization + sha256 content hashing, single-link clustering over Float32Arrays, plain-fetch Anthropic provider (injectable, ADR-0009 pattern). Call sites are enumerated in ADR-0017; `grep -r "@devflow/ai" apps packages` must return only those.
+- **Spike measurements (the founder gate):** ~25 MB one-time download, ~0.4 s warm load, ~150 MB RSS, 2–6 ms/text, paraphrases 0.79–0.82 vs unrelated 0.22–0.23 cosine. `onnxruntime-node` works with pnpm's script-blocking intact (no D13 exception).
+- **Migration 0004 (ADR-0018):** `CREATE EXTENSION vector`, `test_results.failure_hash` (partial index), content-addressed `failure_embeddings` (unique repo+hash), `ai_hypotheses` (identity copied, provenance columns). Worker embedding stage after detection: flag-gated (`DEVFLOW_AI_EMBEDDINGS`), bounded (`DEVFLOW_AI_EMBED_MAX_PER_RUN`), failure-isolated (never fails ingestion), convergent under reprocess.
+- **API:** `GET /search?q=` (query embedded in-process, exact cosine in pgvector, workspace-scoped, occurrences + affected tests joined); `GET /repositories/:id/failure-clusters?days=` (windowed ≤1000 vectors, threshold `DEVFLOW_AI_CLUSTER_THRESHOLD`); `POST|GET /flaky-tests/:scoreId/hypothesis` (ADR-0019: human-triggered, digest-cached, `force` regenerates, 501 without key, 502 on upstream failure without disturbing the cache); `/api/v1/me` grew `features: {aiSearch, aiHypotheses}`.
+- **Web:** Insights page (search + clusters, feature-gated nav) and the hypothesis panel on test detail (provenance + "AI-generated hypothesis — verify before acting").
+- **CI:** model directory cached (`actions/cache` SHA-pinned); `DEVFLOW_AI_MODEL_DIR` in turbo's strict test env.
+- **New env** (`.env.example`): `DEVFLOW_AI_EMBEDDINGS`, `DEVFLOW_AI_MODEL_DIR`, `DEVFLOW_AI_EMBED_MAX_PER_RUN`, `DEVFLOW_AI_CLUSTER_THRESHOLD`, `DEVFLOW_AI_API_KEY` (no default, ever), `DEVFLOW_AI_MODEL` (default `claude-haiku-4-5`), `DEVFLOW_AI_BASE_URL`.
 
 ### Verification actually run (not asserted)
 
-- **`pnpm verify` green: 129 tests** across db (16), queue, api (72), worker (59) — including cross-tenant denial per endpoint, ADR-0010-pinned decay arithmetic + SQL≡TS equality, signed-state tamper/expiry/theft cases, quarantine state machine, room isolation on real Redis.
-- **Scripted live e2e 14/14** (script preserved this session in scratchpad; throwaway db dropped): claim → six deliveries → 0.3333/suspected (exact ADR math) → neutral suspected-flaky check → flaky 0.6 → API ranking/runs/history → proposal → approve → next check "1 quarantined…" + `human-approved quarantine`, still neutral → 21 workspace-scoped socket events → redelivery converged. Also live-verified: API serving the built SPA (index, client-route fallback, JSON 401/404 preserved).
-- E2E found and fixed a real bug pre-commit: the SPA's fetch wrapper sent a JSON content-type on body-less POSTs (Fastify 400) — `fix(web)` commit.
+- **`pnpm verify` green: 158 tests** — ai 21 (real-model embedder; clustering on synthetic vectors; LLM client wire shape), worker 71 (embedding stage semantics incl. reprocess convergence and swallow-on-failure), api 91 (search/clusters/hypothesis with cross-tenant denial on every new endpoint; stub Anthropic server through the real client), db 16, queue.
+- **Scripted live e2e 22/22** (M4 regression flow intact + M5): 3 distinct failure texts embedded with hashes stamped; **real MiniLM** ranked both timeout paraphrases (0.72/0.69) above the redis failure (0.26); clusters split 2+1; hypothesis via stub LLM with provenance and cache semantics; prompt carried the untrusted-data instruction. E2E state fully cleaned after (db dropped, redis flushed, `ps` verified — the leaked-process discipline).
 
 ## Open founder items
 
-1. **Review + push + PR of `feat/web-dashboard`** (PR title is commitlint-checked; suggested: `feat(web): add dashboard, live feed and quarantine workflow`). Delete both stale closeout branches.
-2. **D11 squash decision before this PR merges** (three merge commits so far): enforce squash+linear history in branch protection (recommended) or amend D11.
-3. **GitHub App reconfiguration** ([github-app-setup.md §3b](../github-app-setup.md)): OAuth callback URL + _Request user authorization_ + client secret, Setup URL (+ redirect on update), subscribe `installation` events. Then the real-GitHub pass: browser login, live claim, dogfood annotations.
-4. **Backfill decision** (open since M3): recommendation stands — fold into M6 demo tooling.
+1. **Review + push + PR of `feat/ai-insights`** (suggested title: `feat(api): add assistive AI layer with semantic failure search`). D11 is founder-ruled governance — no action needed from implementation.
+2. **Optional live-LLM pass:** put a real `DEVFLOW_AI_API_KEY` in `.env`, click Generate on a flaky test, sanity-check the hypothesis (ADR-0019's founder step).
+3. **Standing from M4:** GitHub App reconfiguration (github-app-setup.md §3b) + the real-GitHub login/claim/dogfood pass.
+4. **Backfill decision** — still parked; M6 (next) is the recommended home, and its design step should settle it.
 5. Dependabot queue (5 PRs), individually per D13.
-6. **Green-light the M5 design step** (AI layer; AI-boundary + embedding ADRs due) — or reorder M6 first if hardening should precede AI.
+6. **Green-light the M6 design step** (production hardening + release: one-command compose, seed/demo + backfill, observability polish, docs/diagrams, demo video, v0.1.0).
 
 ## Known technical debt (accepted, tracked)
 
 1. C2 (M0): commitlint CI job installs the whole workspace.
-2. Rate-limit handling reactive-only; artifact pagination bounded 10×100; no worker health endpoint (ADR-0009).
-3. Docker-less `pnpm verify` fails at the test leg (needs Postgres+Redis) — accepted, fixtures-over-mocks.
-4. M3: per-identity score upserts in a loop; 403-on-unapproved-permissions retries into the DLQ (ADR-0011).
-5. M4: effective-score SQL in ORDER BY/WHERE per list request (cached column = recorded escape hatch); socket rooms join at connect time only; duplicate dismissed rows possible under race (harmless); no automated UI tests (stated in apps/web README).
+2. Rate-limit handling reactive-only; artifact pagination bounded; no worker health endpoint (ADR-0009) — M6 candidates.
+3. Docker-less `pnpm verify` fails at the test leg (needs Postgres+Redis) — accepted.
+4. M3/M4 items unchanged (per-identity score upserts; 403→DLQ on unapproved Checks permission; effective-score SQL per list request; socket rooms join at connect; no automated UI tests).
+5. M5: whitespace-only failure-text normalization (better normalization = a hash migration, recorded); clustering O(n²) at the 1000-vector cap (sub-second measured); in-process query embedding (~0.4 s first-search load per API process); air-gapped deploys pre-seed `DEVFLOW_AI_MODEL_DIR`.
 
 ## Environment notes (this machine)
 
-- WSL2; repo on `/mnt/d` (drvfs) — slow fs; cold server start up to ~16s: **poll, never sleep-once**; check port ownership before trusting a green curl. Killing `pnpm exec` children **orphans the tsx grandchild** — spawn detached process groups and kill the group (e2e does this now), and verify death via `ps`.
-- pnpm shim: `~/.local/bin/pnpm` (corepack, no sudo); Turbo needs it on PATH: `export PATH="$HOME/.local/bin:$PATH"`.
-- Node 20.19.4 (`.nvmrc` targets 22; floor `>=20.19.0`). No `jq` (use `node -e`), no `gh` (public-API reads via curl work), no non-interactive git credentials — **push/PR/merge are founder actions**.
-- GitHub username: `annacrisstina`. Contact email: rohike.contact@gmail.com.
-- pg polls: `rowCount` can be 0 — poll on truthiness of the _condition_, not on "query returned".
+- WSL2; repo on `/mnt/d` (drvfs) — slow fs; **poll, never sleep-once** (and poll on the _condition's truthiness_ — pg `rowCount: 0` is not false); check port ownership before trusting curl; `pnpm exec` children orphan tsx grandchildren — spawn detached groups, kill the group, verify via `ps`.
+- pnpm shim: `~/.local/bin/pnpm`; `export PATH="$HOME/.local/bin:$PATH"` for Turbo.
+- Node 20.19.4; no `jq`, no `gh`; no git credentials — **push/PR/merge are founder actions**.
+- GitHub username: `annacrisstina`. The founder communicates in Romanian; the repository is entirely in English.
+- The MiniLM model is cached locally (package cache) — spikes and e2e runs are warm (~0.4 s load).
 
 ## Things to remember before continuing
 
-- **Milestone workflow + NEVER list** ([implementation-rules.md](../project-memory/implementation-rules.md)): design before files, run verifications for real, founder confirmation at milestone boundaries, PRs only, no AI-attribution trailers in commits, gate commits on verify with `&&`.
-- **No post-merge closeout branches** (post-M3 amendment, in force): milestone docs land on the milestone branch before the PR — this file, dev-log, memory, ADRs all updated _here_, as done for M4.
+- **Milestone workflow + NEVER list** ([implementation-rules.md](../project-memory/implementation-rules.md)); docs on the milestone branch before the PR; verify-gated commits (`&&`); no AI-attribution trailers.
+- **The AI boundary is reviewable mechanically** (ADR-0017): any new `@devflow/ai` import outside the enumerated seams is a violation — check it in every review touching AI code.
 - Update this file every session; dev-log every milestone; project memory on significant decisions.
-- The founder communicates in Romanian; the repository is entirely in English.
-- **Next after M4 merges: M5 (AI layer) — design step first, on the founder's go.** M5's amputable-AI interface should sit behind the seam recorded in architecture-context (delete the layer, product still works).
+- **Next after M5 merges: M6 — production hardening + release** (design step first, on the founder's go; the backfill decision belongs in that design).

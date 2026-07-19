@@ -28,14 +28,11 @@ The killer feature: deterministic two-signal detection (ADR-0010 — same-commit
 
 The product became visible: `apps/web` (Vite React SPA behind the API), Auth.js GitHub login on Fastify (ADR-0013), workspace tenancy with unclaimed-installation backfill and signed-state claiming (ADR-0012), `/api/v1` with decay-at-read scoring (ADR-0014), Socket.IO live run feed over Redis pub/sub (ADR-0015), quarantine propose→human-approve→track with check-run labeling (ADR-0016). 129 tests + a 14/14 scripted live e2e. **Deviations:** no workspace invites (single-member workspaces; schema is team-ready); real-GitHub OAuth/claim verification = founder step (App reconfiguration, github-app-setup.md §3b). Details: [development-log.md](../development-log.md).
 
+### Milestone 5 — AI layer (assistive only) + semantic search ✅ (2026-07-19, PR pending)
+
+The disciplined-AI milestone, split along the self-hosting line: semantic search + failure clustering on a **local** embedding model (MiniLM/pgvector, no key — ADR-0018) and human-triggered root-cause hypotheses behind a **BYO-key** LLM seam (Claude, cached, provenance-stamped — ADR-0019), all inside the amputable `@devflow/ai` package with enumerated call sites (ADR-0017). 158 tests + a 22/22 live e2e (real local model; stubbed LLM through the real client). **Deviations:** live-LLM verification = founder step (needs a key); the original "summarization-only" cut line was consciously inverted at review (founder-ratified) and unused. Details: [development-log.md](../development-log.md).
+
 ## Future milestones (order is load-bearing)
-
-### Milestone 5 — AI layer (assistive only) + semantic search
-
-**Goal:** disciplined AI on top of a complete product.
-**Scope:** failure-log clustering ("these 40 failures share one cause"), root-cause-hypothesis summarization for a flaky test, pgvector semantic search over failure history. All behind the amputable-AI interface; all outputs advisory.
-**ADRs due:** AI boundary formalization; embedding/model choices.
-**Depends on:** M2–M3 (needs failure corpus). Deliberately last: proves the product stands without it.
 
 ### Milestone 6 — Production hardening + release
 
@@ -51,7 +48,7 @@ M0 ─▶ M1 ─▶ M2 ─▶ M3 ─▶ M4 ─▶ M6
 
 ## Pre-planned cut lines (if the schedule slips)
 
-1. **First cut:** M5 shrinks to summarization-only (clustering and semantic search dropped).
+1. ~~**First cut:** M5 shrinks to summarization-only~~ (obsolete — M5 shipped whole; the ratified cut order had been inverted: the LLM half would have dropped first).
 2. **Second cut:** quarantine becomes flagging-only (no tracked workflow).
 3. **Third cut:** live feed becomes polling (Socket.IO deferred) — cut last because real-time is a named portfolio goal.
 4. **Never cut:** M1–M3. Ingestion → parsing → detection with PR annotation IS the product; without them there is nothing to show.

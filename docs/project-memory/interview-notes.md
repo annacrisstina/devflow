@@ -43,6 +43,7 @@ Before an interview, pick the 3–4 stories most relevant to the company (integr
 - **Concepts:** human-in-the-loop design, blast-radius analysis of model errors, amputable-AI architecture (delete the layer, product still works — provable in the code).
 - **Unlocks:** "Where would you use an LLM in this system?" — and the stronger inverse, "where did you refuse to, and why."
 - **How to tell it:** "clustering 40 failure logs into one hypothesis is cheap if wrong; quarantining a healthy test is expensive if wrong. AI got the first job and was banned from the second."
+- **As implemented (M5, ADR-0017/0018/0019):** the boundary is a package (`@devflow/ai`) with _enumerated_ call sites and a deletion test a reviewer can grep. Clustering turned out to need no LLM at all — it is geometry over locally-computed embeddings (MiniLM on CPU, 2–6 ms/text measured, self-host-complete); the LLM exists in exactly one place: human-clicked root-cause hypotheses, BYO-key, digest-cached, provenance-stamped, confined to one labeled advisory text sink. Strong follow-ups: prompt injection from CI logs (untrusted data in prompts; no tools; advisory-only sink), structural vs policy cost bounds (no background calls exist, so there is nothing to rate-limit), and "what breaks if you delete the AI?" — nothing, verifiably.
 
 ## 6. Monorepo + tooling discipline (M0)
 
@@ -92,4 +93,4 @@ Before an interview, pick the 3–4 stories most relevant to the company (integr
 | Production engineering                     | M6 (self-hosting, hardening, release)               |
 | CI/CD                                      | M0 (pipeline) + the product's entire domain         |
 | System Design interview prep               | every ADR                                           |
-| AI as engineering tool                     | M5 + the boundary principle                         |
+| AI as engineering tool                     | M5 (local embeddings, LLM seam, ADR-0017–0019) ✅   |

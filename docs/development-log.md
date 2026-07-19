@@ -301,4 +301,63 @@ Multi-tenancy design (claiming via signed state, unclaimed-data backfill, app-la
 
 ---
 
-_(Next entry: Milestone 5, appended when completed.)_
+## Milestone 5 — AI layer (assistive only) + semantic search
+
+- **Date:** 2026-07-19
+- **Milestone:** 5
+- **Goal:** disciplined AI on top of a complete product — semantic search over failure history, failure clustering, and human-triggered root-cause hypotheses; everything advisory, everything amputable (D14 made mechanical), self-hosting intact.
+
+### Completed work
+
+- **The self-hosting split (the milestone's central decision):** search + clustering run on a **local embedding model** — no key, no managed dependency; hypotheses use a **BYO-key LLM** — absent key means the feature is cleanly off (`501 ai_disabled`, UI hides it via `/me` features). NEVER-#11 honored structurally, not by exception.
+- **`@devflow/ai` (ADR-0017):** the amputable layer as a package with enumerated call sites and a grep-verifiable deletion test. Contains the MiniLM embedder (quantized ONNX via `@huggingface/transformers`, 384 dims, lazy singleton), canonical failure-text normalization + sha256 content hashing, greedy single-link clustering over Float32Arrays, and the plain-fetch Anthropic provider (injectable `fetchImpl`/`baseUrl`, the ADR-0009 pattern).
+- **Founder gate, measured (component 1 spike):** ~25 MB one-time model download, ~0.4 s warm load, ~150 MB RSS, **2–6 ms per short text** on the WSL2 dev machine; paraphrases 0.79–0.82 cosine vs 0.22–0.23 unrelated. Gate passed decisively; the API-embeddings fallback was never needed. Bonus recorded: `onnxruntime-node` ships prebuilt binaries — pnpm 10's lifecycle-script blocking (D13) stays fully intact.
+- **Migration 0004 + write path (ADR-0018):** `CREATE EXTENSION vector` (the image has shipped it since M0 — D5 finally cashed in), `test_results.failure_hash` (partial index), content-addressed `failure_embeddings` (unique per repo+hash — a message repeated ten thousand times embeds once), `ai_hypotheses` (identity copied, not FK'd — ADR-0016's reasoning). The worker's embedding stage runs after detection: stamps hashes, embeds only unseen texts (bounded per run, overflow stated), flag-gated, and failure-isolated like the live feed — it can never fail or retry ingestion. Convergent under replace-per-run reprocessing.
+- **Read surface (ADR-0018):** `GET /search?q=` (embed query → exact cosine top-K in pgvector, workspace-scoped, joined to occurrences + affected tests; HNSW trigger recorded at ~100k vectors) and `GET /repositories/:id/failure-clusters?days=` (windowed, capped, computed per request — geometry, nothing stored). `/api/v1/me` grew the `features` capability object.
+- **Hypotheses (ADR-0019):** `POST /flaky-tests/:scoreId/hypothesis` — human-triggered only, evidence digested (`sha256(evidence+prompt_version)`), cache served on unchanged evidence, `force` and prompt-version bumps regenerate; provenance (answering model, prompt version, requester, timestamp) stored and displayed; upstream failures map to 502 without disturbing the cache. Prompt instructs the model to treat failure logs as untrusted data; output is one labeled advisory text sink. Default model `claude-haiku-4-5`, 800-token cap, temperature 0.2. Cost is structurally bounded: no loops exist to rate-limit.
+- **Web:** Insights page (search + clusters with repo/window selectors) and the hypothesis panel on test detail ("AI-generated hypothesis — verify before acting" + provenance line) — both render only what the deployment's features enable.
+- **CI:** model directory cached (`actions/cache`, SHA-pinned via the commits API — the M0 annotated-tag lesson applied again); embedder tests run the real model.
+
+### Verification (all run, not asserted)
+
+- **`pnpm verify` green: 158 tests** (was 129): `@devflow/ai` 21 (clustering pinned on synthetic vectors; embedder on the **real model** — normalized dims, paraphrase-over-unrelated margins; LLM client wire shape/error taxonomy on fake fetch), worker 71 (embedding stage: hash stamping, dedup, caps, reprocess convergence, swallow-on-failure), api 91 (search ranking/scoping, cluster grouping/windowing, hypothesis generate/cache/force/digest/502/501, features flags, cross-tenant denial on every new endpoint).
+- **Scripted live e2e, 22/22** — the full M4 regression flow (claim → divergences → 0.3333 suspected → flaky 0.6 → quarantine → neutral "quarantined" check → live events → redelivery convergence) **plus**: worker embedded 3 distinct failure texts with hashes stamped; real-MiniLM search ranked both timeout paraphrases (0.72/0.69) above the redis failure (0.26); clusters split 2+1; hypothesis generated through the real client against a stub LLM (provenance `claude-haiku-4-5-e2e`, prompt carried the untrusted-data instruction and the real failure message; second call served the cache with zero LLM calls).
+
+### ADRs created
+
+- ADR-0017: The AI boundary, formalized (enumerated call sites + deletion test; two output sinks; human-trigger rule; prompt-injection posture).
+- ADR-0018: Local embeddings, content-addressed storage, deterministic clustering (rejected: API embeddings, Ollama, bigger models, per-row embedding, ANN-now, k-means/LLM clustering).
+- ADR-0019: LLM provider seam + hypotheses (rejected: SDK, multi-provider-now, streaming, background generation, hypothesis history).
+
+### Deviations (recorded)
+
+- **Live verification against the real Anthropic API is a founder step** (needs the founder's key) — everything else runs against the stub through the real client; same precedent as real-GitHub verification.
+- The roadmap's original cut line ("M5 shrinks to summarization-only") was **consciously inverted at review time** (founder-ratified): local-first embeddings made search/clustering the cheap half, so the LLM half would have dropped first. No cut was needed.
+
+### Lessons learned
+
+1. **Measure before you argue:** the local-vs-API embeddings debate ended in one spike run — 2–6 ms per text on a laptop CPU closes the discussion in a way no benchmark table from the internet could.
+2. **`onnxruntime-node` needs no lifecycle scripts** — prebuilt binaries load under pnpm 10's script blocking. Worth knowing before weakening a supply-chain posture "because native modules".
+3. **Exactly-two-fresh-divergences scores a hair under the flaky threshold** (`2d/(2d+2)`, d<1) — surfaced again writing the e2e; it is the under-flagging bias behaving as specified, and the e2e now documents it with a third divergence pair.
+4. **Content-address before you embed:** deduplicating by hash before inference turned the embedding stage from "per failure" to "per novel failure" — the difference between a real cost and a rounding error at CI scale.
+
+### Technical debt introduced (accepted, tracked)
+
+- Failure-text normalization is whitespace-only; near-identical messages differing in timestamps/addresses embed separately (recorded post-MVP improvement — changing it is a hash migration).
+- Clustering is O(n²) at the 1000-vector window cap (sub-second measured; revisit only if a real window hits the cap).
+- The API's query embedder loads the model in-process on first search (~0.4 s warm, one-time per process) — acceptable; a shared embedding service is the recorded escape hatch if multiple API instances ever matter.
+- Air-gapped deploys must pre-seed `DEVFLOW_AI_MODEL_DIR` (documented; M6 owns the compose volume note).
+
+### Interview topics covered by this milestone
+
+Where NOT to use an LLM (clustering as geometry; detection untouched — the §5 story now implemented), amputable-architecture as a package boundary with a deletion test, local CPU inference trade-offs (model class selection, quantization, measured latency), content-addressed derived data, pgvector exact-vs-ANN reasoning, prompt-injection posture for log-fed LLMs, structural (not policy) cost bounding. Details: [project-memory/interview-notes.md](project-memory/interview-notes.md) §5.
+
+### Status & next
+
+- **Milestone 5: complete, verified end-to-end locally; awaiting founder review + PR.** Branch `feat/ai-insights`; push/PR/merge are founder actions.
+- Founder steps: optional live-LLM pass with a real key; the standing real-GitHub verification (App reconfiguration from M4) still open.
+- **Next milestone: M6 — production hardening + release** (one-command self-host, seed/demo tooling + the parked backfill decision, observability polish, docs/diagrams, demo video, v0.1.0). Design step first, on the founder's go.
+
+---
+
+_(Next entry: Milestone 6, appended when completed.)_
