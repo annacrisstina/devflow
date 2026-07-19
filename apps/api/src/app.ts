@@ -1,3 +1,4 @@
+import fastifyStatic from '@fastify/static';
 import { createDbClient, type Db } from '@devflow/db/client';
 import { createRedisConnection } from '@devflow/queue/connection';
 import { createIngestQueue, type IngestQueue } from '@devflow/queue/ingest';
@@ -55,6 +56,25 @@ export async function buildApp(config: ApiConfig): Promise<FastifyInstance> {
   await app.register(installationRoutes, { config });
   await app.register(quarantineRoutes, { flake: config.flake });
   await app.register(liveFeedPlugin, { redisUrl: config.redisUrl });
+
+  // Self-hosted deployments serve the built SPA from the same origin
+  // (ADR-0013's cookie model). Dev and tests leave DEVFLOW_WEB_DIST unset —
+  // Vite's dev server owns the SPA there.
+  if (config.webDist !== undefined) {
+    await app.register(fastifyStatic, { root: config.webDist });
+    app.setNotFoundHandler(async (request, reply) => {
+      // SPA fallback for browser navigation only; API misses stay JSON 404s.
+      const isApiPath =
+        request.url.startsWith('/api') ||
+        request.url.startsWith('/webhooks') ||
+        request.url.startsWith('/healthz') ||
+        request.url.startsWith('/socket.io');
+      if (request.method === 'GET' && !isApiPath) {
+        return reply.sendFile('index.html');
+      }
+      return reply.status(404).send({ error: { code: 'not_found', message: 'Not found.' } });
+    });
+  }
 
   return app;
 }

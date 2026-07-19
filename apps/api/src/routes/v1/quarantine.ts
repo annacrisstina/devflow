@@ -128,6 +128,9 @@ export const quarantineRoutes: FastifyPluginAsync<QuarantineRoutesOptions> = asy
           name: repositories.name,
           createdByName: users.name,
           liftedByName: liftedByUsers.name,
+          // The identity's current score row, when it exists: the handle for
+          // re-approving a dismissed identity (decisions reference scores).
+          scoreId: testFlakeScores.id,
         })
         .from(quarantineRecords)
         .innerJoin(repositories, eq(quarantineRecords.repositoryId, repositories.id))
@@ -137,6 +140,15 @@ export const quarantineRoutes: FastifyPluginAsync<QuarantineRoutesOptions> = asy
         )
         .leftJoin(users, eq(quarantineRecords.createdBy, users.id))
         .leftJoin(liftedByUsers, eq(quarantineRecords.liftedBy, liftedByUsers.id))
+        .leftJoin(
+          testFlakeScores,
+          and(
+            eq(testFlakeScores.repositoryId, quarantineRecords.repositoryId),
+            eq(testFlakeScores.suiteName, quarantineRecords.suiteName),
+            eq(testFlakeScores.className, quarantineRecords.className),
+            eq(testFlakeScores.testName, quarantineRecords.testName),
+          ),
+        )
         .where(
           and(eq(installations.workspaceId, workspaceId), eq(quarantineRecords.status, status)),
         )
@@ -155,6 +167,7 @@ export const quarantineRoutes: FastifyPluginAsync<QuarantineRoutesOptions> = asy
         createdBy: row.createdByName,
         liftedAt: row.record.liftedAt?.toISOString() ?? null,
         liftedBy: row.liftedByName,
+        scoreId: row.scoreId?.toString() ?? null,
       }));
       return { items };
     },

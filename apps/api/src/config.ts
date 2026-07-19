@@ -26,6 +26,12 @@ export type ApiConfig = {
   /** The App's public slug — builds the install link (ADR-0012). */
   githubAppSlug: string;
   /**
+   * Absolute path of the built SPA (apps/web/dist). Optional: unset in dev
+   * (Vite serves the SPA) and in tests; set in self-hosted deployments so
+   * the API serves the dashboard from the same origin.
+   */
+  webDist: string | undefined;
+  /**
    * Read-model twin of the worker's detection knobs (ADR-0014): decay-at-read
    * uses the same env variables, so tuning detection tunes reads with it.
    */
@@ -44,6 +50,7 @@ type RawEnv = {
   DEVFLOW_GITHUB_CLIENT_ID: string;
   DEVFLOW_GITHUB_CLIENT_SECRET: string;
   DEVFLOW_GITHUB_APP_SLUG: string;
+  DEVFLOW_WEB_DIST?: string;
   DEVFLOW_FLAKE_HALF_LIFE_DAYS: number;
   DEVFLOW_FLAKE_SATURATION_K: number;
   DEVFLOW_FLAKE_FLAKY_THRESHOLD: number;
@@ -69,6 +76,7 @@ const schema = {
     DEVFLOW_GITHUB_CLIENT_ID: { type: 'string', minLength: 1 },
     DEVFLOW_GITHUB_CLIENT_SECRET: { type: 'string', minLength: 1 },
     DEVFLOW_GITHUB_APP_SLUG: { type: 'string', minLength: 1 },
+    DEVFLOW_WEB_DIST: { type: 'string' },
     // Loopback default matches the dev API address; a deployment behind a
     // domain must set this or OAuth callbacks will point at localhost.
     DEVFLOW_APP_URL: { type: 'string', default: 'http://127.0.0.1:3001' },
@@ -134,6 +142,7 @@ export function loadConfig(): ApiConfig {
     githubClientId: env.DEVFLOW_GITHUB_CLIENT_ID,
     githubClientSecret: env.DEVFLOW_GITHUB_CLIENT_SECRET,
     githubAppSlug: env.DEVFLOW_GITHUB_APP_SLUG,
+    webDist: env.DEVFLOW_WEB_DIST,
     flake: {
       halfLifeDays: env.DEVFLOW_FLAKE_HALF_LIFE_DAYS,
       saturationK: env.DEVFLOW_FLAKE_SATURATION_K,

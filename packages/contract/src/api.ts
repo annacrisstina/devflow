@@ -124,6 +124,11 @@ export type QuarantineRecord = {
   createdBy: string | null;
   liftedAt: string | null;
   liftedBy: string | null;
+  /**
+   * Current score row for this identity, when one exists — the handle for
+   * re-approving a dismissed identity (decisions reference scores).
+   */
+  scoreId: string | null;
 };
 
 export type RunSummary = {
