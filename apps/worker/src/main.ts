@@ -6,6 +6,7 @@ import { createAnnotationStage } from './annotation/annotation-stage.js';
 import { loadConfig } from './config.js';
 import { createDetectionStage } from './detection/detection-stage.js';
 import { createGitHubClient } from './github/client.js';
+import { createLivePublisher } from './live/publisher.js';
 import { createArtifactStage } from './pipeline/artifact-stage.js';
 import { createIngestWorker } from './worker.js';
 
@@ -27,9 +28,13 @@ const artifactStage = createArtifactStage({
 });
 const detectionStage = createDetectionStage({ db: dbClient.db, detection: config.detection });
 const annotationStage = createAnnotationStage({ db: dbClient.db, github });
+// Own connection for PUBLISH: BullMQ manages the worker connection's state
+// and a shared connection would couple live-feed traffic to job consumption.
+const publishConnection = createRedisConnection(config.redisUrl);
+const live = createLivePublisher(dbClient.db, publishConnection);
 
 const worker = createIngestWorker(
-  { db: dbClient.db, log, artifactStage, detectionStage, annotationStage },
+  { db: dbClient.db, log, artifactStage, detectionStage, annotationStage, live },
   connection,
   config.concurrency,
   log,
@@ -45,6 +50,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     worker
       .close()
       .then(() => connection.quit())
+      .then(() => publishConnection.quit())
       .then(() => dbClient.close())
       .then(() => process.exit(0))
       .catch((error: unknown) => {

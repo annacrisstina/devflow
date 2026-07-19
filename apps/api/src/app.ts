@@ -5,6 +5,7 @@ import { fastify, type FastifyInstance } from 'fastify';
 
 import { authJsPlugin } from './auth/authjs-plugin.js';
 import type { ApiConfig } from './config.js';
+import { liveFeedPlugin } from './live/socket-plugin.js';
 import { healthRoutes } from './routes/health.js';
 import { flakyTestRoutes } from './routes/v1/flaky-tests.js';
 import { installationRoutes } from './routes/v1/installations.js';
@@ -53,6 +54,7 @@ export async function buildApp(config: ApiConfig): Promise<FastifyInstance> {
   await app.register(runRoutes);
   await app.register(installationRoutes, { config });
   await app.register(quarantineRoutes, { flake: config.flake });
+  await app.register(liveFeedPlugin, { redisUrl: config.redisUrl });
 
   return app;
 }

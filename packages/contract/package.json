@@ -9,6 +9,10 @@
     "./api": {
       "types": "./dist/api.d.ts",
       "default": "./dist/api.js"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "default": "./dist/events.js"
     }
   },
   "files": [
