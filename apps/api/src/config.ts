@@ -16,6 +16,8 @@ export type ApiConfig = {
   databaseUrl: string;
   redisUrl: string;
   webhookSecret: string;
+  /** Trust X-Forwarded-* from a fronting proxy (ADR-0020 deployments). */
+  trustProxy: boolean;
   /** Public base URL of this deployment (OAuth callbacks, signed links). */
   appUrl: string;
   /** Auth.js cookie/token secret + HMAC key for signed install-state (ADR-0013). */
@@ -57,6 +59,7 @@ type RawEnv = {
   DEVFLOW_DATABASE_URL: string;
   DEVFLOW_REDIS_URL: string;
   DEVFLOW_GITHUB_WEBHOOK_SECRET: string;
+  DEVFLOW_TRUST_PROXY: string;
   DEVFLOW_APP_URL: string;
   DEVFLOW_AUTH_SECRET: string;
   DEVFLOW_GITHUB_CLIENT_ID: string;
@@ -95,6 +98,7 @@ const schema = {
     DEVFLOW_GITHUB_CLIENT_SECRET: { type: 'string', minLength: 1 },
     DEVFLOW_GITHUB_APP_SLUG: { type: 'string', minLength: 1 },
     DEVFLOW_WEB_DIST: { type: 'string' },
+    DEVFLOW_TRUST_PROXY: { type: 'string', enum: ['on', 'off'], default: 'off' },
     // Loopback default matches the dev API address; a deployment behind a
     // domain must set this or OAuth callbacks will point at localhost.
     DEVFLOW_APP_URL: { type: 'string', default: 'http://127.0.0.1:3001' },
@@ -168,6 +172,7 @@ export function loadConfig(): ApiConfig {
     databaseUrl: env.DEVFLOW_DATABASE_URL,
     redisUrl: env.DEVFLOW_REDIS_URL,
     webhookSecret: env.DEVFLOW_GITHUB_WEBHOOK_SECRET,
+    trustProxy: env.DEVFLOW_TRUST_PROXY === 'on',
     appUrl: env.DEVFLOW_APP_URL.replace(/\/$/, ''),
     authSecret: env.DEVFLOW_AUTH_SECRET,
     githubClientId: env.DEVFLOW_GITHUB_CLIENT_ID,

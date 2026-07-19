@@ -6,6 +6,7 @@ import { testResults } from '@devflow/db/schema/runs';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { Logger } from 'pino';
 
+import { embeddingsCreated } from '../metrics.js';
 import type { NormalizedRun } from '../pipeline/normalize-run.js';
 
 export type EmbeddingStageConfig = {
@@ -112,6 +113,7 @@ export function createEmbeddingStage(config: EmbeddingStageConfig): EmbeddingSta
             target: [failureEmbeddings.repositoryId, failureEmbeddings.contentHash],
             set: { lastSeenAt: new Date() },
           });
+        embeddingsCreated.inc(toEmbed.length);
       }
 
       log.info(

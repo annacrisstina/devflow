@@ -3,9 +3,12 @@ import { createRedisConnection } from '@devflow/queue/connection';
 import { pino } from 'pino';
 
 import { createEmbedder } from '@devflow/ai/embedder';
+import { createIngestQueue } from '@devflow/queue/ingest';
 
 import { createEmbeddingStage } from './ai/embedding-stage.js';
 import { createAnnotationStage } from './annotation/annotation-stage.js';
+import { createHealthServer } from './health-server.js';
+import { queueDepth } from './metrics.js';
 import { loadConfig } from './config.js';
 import { createDetectionStage } from './detection/detection-stage.js';
 import { createGitHubClient } from './github/client.js';
@@ -51,6 +54,30 @@ const worker = createIngestWorker(
   log,
 );
 
+// Operational surface (ADR-0021): compose healthchecks poll /healthz;
+// Prometheus scrapes /metrics. Queue-depth gauges refresh on an interval —
+// the DLQ (failed state) is the number worth alerting on.
+const healthServer = createHealthServer({
+  db: dbClient.db,
+  redis: publishConnection,
+  host: config.healthHost,
+  port: config.healthPort,
+  log,
+});
+await healthServer.listen();
+const depthQueue = createIngestQueue(publishConnection);
+const depthPoll = setInterval(() => {
+  depthQueue
+    .getJobCounts('waiting', 'active', 'delayed', 'failed', 'completed')
+    .then((counts) => {
+      for (const [state, count] of Object.entries(counts)) {
+        queueDepth.set({ state }, count);
+      }
+    })
+    .catch((error: unknown) => log.warn({ err: error }, 'queue depth poll failed'));
+}, 15_000);
+depthPoll.unref();
+
 log.info({ concurrency: config.concurrency }, 'ingest worker started');
 
 // Graceful shutdown: stop taking jobs, finish in-flight ones, then close
@@ -58,8 +85,11 @@ log.info({ concurrency: config.concurrency }, 'ingest worker started');
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     log.info({ signal }, 'shutting down');
+    clearInterval(depthPoll);
     worker
       .close()
+      .then(() => healthServer.close())
+      .then(() => depthQueue.close())
       .then(() => connection.quit())
       .then(() => publishConnection.quit())
       .then(() => dbClient.close())
