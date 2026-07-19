@@ -159,6 +159,16 @@ Notable incidents, all now recorded as lessons: the e2e exposed a real SPA bug (
 
 **Recorded for the founder:** D11 squash decision still open (needed before this PR); GitHub App reconfiguration for login/claiming (github-app-setup.md §3b) and the real-GitHub verification pass; backfill decision still parked (M6 recommended); both stale closeout branches deletable unmerged.
 
+## Session of 2026-07-19 (later) — Milestone 5 design review and implementation
+
+**Design:** M4 had merged (PR #9 — fourth merge commit; the founder subsequently ruled D11 a repository-governance matter, explicitly not an implementation blocker). The full M5 architecture review was produced from repository state and **founder-approved** with one early-validation gate: measure the local embedding approach before building on it. Ratified decisions: the **self-hosting split** (local MiniLM embeddings for search/clustering — key-free; BYO-key Claude for hypotheses — cleanly absent without a key); `@devflow/ai` as the amputable package with enumerated call sites; content-addressed embeddings; exact-scan pgvector with an HNSW trigger; clustering as deterministic geometry; digest-cached human-triggered hypotheses with provenance; an **inverted cut line** (the LLM half would drop first — the roadmap's "summarization-only" cut assumed the opposite economics and was consciously superseded).
+
+**The gate, measured (component 1):** ~25 MB model, ~0.4 s warm load, ~150 MB RSS, 2–6 ms per text on the WSL2 machine; paraphrases 0.79–0.82 cosine vs 0.22–0.23 unrelated. Passed decisively — the API-embeddings fallback stayed unused. Recorded bonus: `onnxruntime-node` runs under pnpm 10's lifecycle-script blocking (prebuilt binaries) — D13 intact.
+
+**Implementation** (six components on `feat/ai-insights`, each verified then committed): `@devflow/ai` + ADR-0017/0018 → migration 0004 + worker embedding stage + CI model cache → search/clusters endpoints + `/me` features → LLM client + hypothesis endpoint + ADR-0019 → web Insights + hypothesis panel → e2e + docs. 158 tests; e2e **22/22** (the full M4 regression flow plus: real-MiniLM search ranking paraphrases 0.72/0.69 over unrelated 0.26, clusters 2+1, stub-LLM hypothesis with provenance and cache semantics, prompt-injection instruction asserted on the wire).
+
+Notable and recorded: measuring beat arguing (the local-vs-API embeddings question died in one spike run); content-address-before-embedding turned inference cost into a rounding error; the e2e again proved its worth as the only layer that catches full-HTTP-path issues.
+
 ## Standing outcomes of this day
 
 1. Product locked: CI reliability platform (flaky tests) for GitHub Actions.

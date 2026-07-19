@@ -1,12 +1,15 @@
 import type {
+  FailureCluster,
   FlakyTestDetail,
   FlakyTestSummary,
+  Hypothesis,
   MeResponse,
   Paginated,
   QuarantineRecord,
   QuarantineStatus,
   RepositorySummary,
   RunSummary,
+  SearchResult,
   WorkspaceDetail,
   WorkspaceSummary,
 } from '@devflow/contract/api';
@@ -84,6 +87,58 @@ export function useQuarantineRecords(workspaceId: string, status: QuarantineStat
       apiFetch<{ items: QuarantineRecord[] }>(
         `/api/v1/workspaces/${workspaceId}/quarantine?status=${status}`,
       ),
+  });
+}
+
+export function useSearch(workspaceId: string, query: string) {
+  return useQuery({
+    queryKey: ['search', workspaceId, query],
+    queryFn: () =>
+      apiFetch<{ items: SearchResult[] }>(
+        `/api/v1/workspaces/${workspaceId}/search?q=${encodeURIComponent(query)}&limit=20`,
+      ),
+    enabled: query.trim().length >= 2,
+  });
+}
+
+export function useFailureClusters(workspaceId: string, repositoryId: string, days: number) {
+  return useQuery({
+    queryKey: ['failure-clusters', workspaceId, repositoryId, days],
+    queryFn: () =>
+      apiFetch<{ clusters: FailureCluster[] }>(
+        `/api/v1/workspaces/${workspaceId}/repositories/${repositoryId}/failure-clusters?days=${days}`,
+      ),
+    enabled: repositoryId !== '',
+  });
+}
+
+export function useHypothesis(workspaceId: string, scoreId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['hypothesis', workspaceId, scoreId],
+    queryFn: () =>
+      apiFetch<{ hypothesis: Hypothesis; cached: boolean }>(
+        `/api/v1/workspaces/${workspaceId}/flaky-tests/${scoreId}/hypothesis`,
+      ),
+    enabled,
+    retry: (failureCount, error) =>
+      // 404 means "none generated yet", not "try again".
+      !(error instanceof ApiRequestError && error.status === 404) && failureCount < 2,
+  });
+}
+
+export function useGenerateHypothesis(workspaceId: string, scoreId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { force: boolean }) =>
+      apiFetch<{ hypothesis: Hypothesis; cached: boolean }>(
+        `/api/v1/workspaces/${workspaceId}/flaky-tests/${scoreId}/hypothesis`,
+        { method: 'POST', body: JSON.stringify(input) },
+      ),
+    onSuccess: (data) =>
+      queryClient.setQueryData(['hypothesis', workspaceId, scoreId], {
+        hypothesis: data.hypothesis,
+        cached: true,
+      }),
   });
 }
 

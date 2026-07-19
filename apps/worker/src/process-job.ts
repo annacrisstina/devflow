@@ -6,6 +6,7 @@ import type { Logger } from 'pino';
 
 import type { AnnotationStage } from './annotation/annotation-stage.js';
 import type { DetectionStage } from './detection/detection-stage.js';
+import type { EmbeddingStage } from './ai/embedding-stage.js';
 import { PermanentJobError } from './errors.js';
 import type { LivePublisher } from './live/publisher.js';
 import type { ArtifactStageOutcome } from './pipeline/artifact-stage.js';
@@ -31,6 +32,11 @@ export type ProcessJobDeps = {
    * tests need no Redis. Fire-and-forget: never fails the job.
    */
   live?: LivePublisher;
+  /**
+   * AI-layer embedding stage (ADR-0017/0018); optional — absent when the
+   * layer is disabled or amputated. Failure-isolated: never fails the job.
+   */
+  embeddingStage?: EmbeddingStage;
 };
 
 /**
@@ -84,6 +90,9 @@ export async function processJob(deps: ProcessJobDeps, job: ProcessWorkflowRunJo
   }
   await deps.detectionStage(run, log);
   await deps.live?.scoresUpdated(run, log);
+  // Before annotation on purpose: annotation may absorb a permanent error
+  // and return early; embeddings are independent of it.
+  await deps.embeddingStage?.(run, log);
 
   // Results and scores are durable by now: a permanently failed annotation is
   // absorbed (never marks ingestion failed), a transient one retries the

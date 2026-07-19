@@ -45,6 +45,8 @@ jobs:
     env:
       DEVFLOW_DATABASE_URL: postgresql://devflow:devflow_local@127.0.0.1:5432/devflow
       DEVFLOW_REDIS_URL: redis://127.0.0.1:6379
+      # Embedding model cache (ADR-0018): ~25 MB, downloaded once then cached.
+      DEVFLOW_AI_MODEL_DIR: /home/runner/.cache/devflow-models
     steps:
       # Actions are pinned to full commit SHAs: mutable tags are a supply-chain
       # vector (see the tj-actions/changed-files incident). Dependabot keeps them fresh.
@@ -57,6 +59,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      # The embedder tests run the real MiniLM model (fixtures-over-mocks);
+      # cache its one-time download so CI stays offline-fast after the first run.
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: /home/runner/.cache/devflow-models
+          key: devflow-embed-model-Xenova-all-MiniLM-L6-v2
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -82,6 +91,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      # The embedder tests run the real MiniLM model (fixtures-over-mocks);
+      # cache its one-time download so CI stays offline-fast after the first run.
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: /home/runner/.cache/devflow-models
+          key: devflow-embed-model-Xenova-all-MiniLM-L6-v2
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

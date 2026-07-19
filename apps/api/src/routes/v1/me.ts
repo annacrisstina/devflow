@@ -5,10 +5,15 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { requireSession } from '../../auth/guards.js';
 
+export type MeRoutesOptions = {
+  /** Deployment capabilities (ADR-0017) — the SPA renders only what's on. */
+  features: MeResponse['features'];
+};
+
 /**
  * Who am I, and which workspaces can I see — the SPA's boot query.
  */
-export const meRoutes: FastifyPluginAsync = async (app) => {
+export const meRoutes: FastifyPluginAsync<MeRoutesOptions> = async (app, opts) => {
   app.get('/api/v1/me', { preHandler: [requireSession] }, async (request) => {
     // Guaranteed by requireSession.
     const user = request.sessionUser!;
@@ -30,6 +35,7 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
         name: m.name,
         role: m.role as WorkspaceSummary['role'],
       })),
+      features: opts.features,
     };
     return body;
   });

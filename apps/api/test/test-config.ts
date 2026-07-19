@@ -22,6 +22,14 @@ export function testConfig(overrides: Partial<ApiConfig> = {}): ApiConfig {
     githubClientSecret: 'test-client-secret',
     githubAppSlug: 'devflow-dev-test',
     webDist: undefined,
+    ai: {
+      embeddings: true,
+      modelDir: undefined,
+      clusterThreshold: 0.8,
+      apiKey: undefined,
+      model: 'claude-haiku-4-5',
+      baseUrl: 'https://api.anthropic.com',
+    },
     // ADR-0010 reference values, same as production defaults.
     flake: { halfLifeDays: 14, saturationK: 2.0, flakyThreshold: 0.5, suspectThreshold: 0.25 },
     ...overrides,

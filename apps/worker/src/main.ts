@@ -2,6 +2,9 @@ import { createDbClient } from '@devflow/db/client';
 import { createRedisConnection } from '@devflow/queue/connection';
 import { pino } from 'pino';
 
+import { createEmbedder } from '@devflow/ai/embedder';
+
+import { createEmbeddingStage } from './ai/embedding-stage.js';
 import { createAnnotationStage } from './annotation/annotation-stage.js';
 import { loadConfig } from './config.js';
 import { createDetectionStage } from './detection/detection-stage.js';
@@ -32,9 +35,17 @@ const annotationStage = createAnnotationStage({ db: dbClient.db, github });
 // and a shared connection would couple live-feed traffic to job consumption.
 const publishConnection = createRedisConnection(config.redisUrl);
 const live = createLivePublisher(dbClient.db, publishConnection);
+// The AI layer's enumerated worker seam (ADR-0017); absent entirely when off.
+const embeddingStage = config.ai.embeddings
+  ? createEmbeddingStage({
+      db: dbClient.db,
+      embedder: createEmbedder({ modelDir: config.ai.modelDir }),
+      maxNewPerRun: config.ai.embedMaxPerRun,
+    })
+  : undefined;
 
 const worker = createIngestWorker(
-  { db: dbClient.db, log, artifactStage, detectionStage, annotationStage, live },
+  { db: dbClient.db, log, artifactStage, detectionStage, annotationStage, live, embeddingStage },
   connection,
   config.concurrency,
   log,

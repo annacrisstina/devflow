@@ -62,7 +62,7 @@ Explicitly OUT of MVP: other CI providers, other report formats, on-call/paging 
 
 **Used (assistive, always human-reviewed):** clustering failure logs ("these 40 failures share one cause"), summarizing the likely root cause of a flaky test, semantic search over failure history (pgvector embeddings).
 
-**Banned:** AI never decides quarantine, never marks a test flaky on its own, never auto-resolves anything. Detection is deterministic/statistical; thresholds are configurable and human-approved. Principle: **AI assists, never decides.** Removing the AI layer entirely leaves the product ~100% functional — that is the proof it is not an AI wrapper.
+**Banned:** AI never decides quarantine, never marks a test flaky on its own, never auto-resolves anything. Detection is deterministic/statistical; thresholds are configurable and human-approved. Principle: **AI assists, never decides.** Removing the AI layer entirely leaves the product ~100% functional — that is the proof it is not an AI wrapper. _(Implemented in M5 exactly on these lines: ADR-0017 makes the boundary mechanical — enumerated call sites, a deletion test, and clustering turned out to need no LLM at all.)_
 
 ## Long-term vision (post-MVP, not commitments)
 

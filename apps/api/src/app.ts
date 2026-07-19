@@ -1,4 +1,6 @@
 import fastifyStatic from '@fastify/static';
+import { createEmbedder, type Embedder } from '@devflow/ai/embedder';
+import { createAnthropicProvider } from '@devflow/ai/llm';
 import { createDbClient, type Db } from '@devflow/db/client';
 import { createRedisConnection } from '@devflow/queue/connection';
 import { createIngestQueue, type IngestQueue } from '@devflow/queue/ingest';
@@ -9,6 +11,8 @@ import type { ApiConfig } from './config.js';
 import { liveFeedPlugin } from './live/socket-plugin.js';
 import { healthRoutes } from './routes/health.js';
 import { flakyTestRoutes } from './routes/v1/flaky-tests.js';
+import { hypothesisRoutes } from './routes/v1/hypothesis.js';
+import { insightsRoutes } from './routes/v1/insights.js';
 import { installationRoutes } from './routes/v1/installations.js';
 import { meRoutes } from './routes/v1/me.js';
 import { quarantineRoutes } from './routes/v1/quarantine.js';
@@ -27,7 +31,15 @@ declare module 'fastify' {
  * Builds a fully wired but not-yet-listening app. Separated from server.ts so
  * tests exercise the real instance via inject() without binding a port.
  */
-export async function buildApp(config: ApiConfig): Promise<FastifyInstance> {
+export type BuildAppOverrides = {
+  /** Test seam: inject a deterministic embedder instead of the real model. */
+  embedder?: Embedder;
+};
+
+export async function buildApp(
+  config: ApiConfig,
+  overrides: BuildAppOverrides = {},
+): Promise<FastifyInstance> {
   const app = fastify({
     logger: { level: config.logLevel },
     // Fastify generates its own request ids; webhook deliveries additionally
@@ -49,12 +61,38 @@ export async function buildApp(config: ApiConfig): Promise<FastifyInstance> {
   await app.register(healthRoutes);
   await app.register(webhookRoutes, { webhookSecret: config.webhookSecret });
   await app.register(authJsPlugin, { config });
-  await app.register(meRoutes);
+  // Lazy: the model loads on the first search, not at boot (ADR-0018).
+  const embedder = config.ai.embeddings
+    ? (overrides.embedder ?? createEmbedder({ modelDir: config.ai.modelDir }))
+    : undefined;
+
+  await app.register(meRoutes, {
+    features: {
+      aiSearch: config.ai.embeddings,
+      aiHypotheses: config.ai.apiKey !== undefined,
+    },
+  });
   await app.register(workspaceRoutes);
   await app.register(flakyTestRoutes, { flake: config.flake });
   await app.register(runRoutes);
   await app.register(installationRoutes, { config });
   await app.register(quarantineRoutes, { flake: config.flake });
+  await app.register(insightsRoutes, {
+    embedder,
+    clusterThreshold: config.ai.clusterThreshold,
+  });
+  // BYO key (ADR-0019): no key, no provider, feature cleanly off.
+  await app.register(hypothesisRoutes, {
+    provider:
+      config.ai.apiKey === undefined
+        ? undefined
+        : createAnthropicProvider({
+            apiKey: config.ai.apiKey,
+            model: config.ai.model,
+            baseUrl: config.ai.baseUrl,
+          }),
+    flake: config.flake,
+  });
   await app.register(liveFeedPlugin, { redisUrl: config.redisUrl });
 
   // Self-hosted deployments serve the built SPA from the same origin

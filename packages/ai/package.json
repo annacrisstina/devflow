@@ -1,0 +1,42 @@
+{
+  "name": "@devflow/ai",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The amputable AI layer (ADR-0017): local failure-text embeddings, deterministic embedding-space clustering, and the BYO-key LLM client. Deleting this package and its enumerated call sites leaves a fully functional product.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./embedder": {
+      "types": "./dist/embedder.d.ts",
+      "default": "./dist/embedder.js"
+    },
+    "./failure-text": {
+      "types": "./dist/failure-text.d.ts",
+      "default": "./dist/failure-text.js"
+    },
+    "./clustering": {
+      "types": "./dist/clustering.d.ts",
+      "default": "./dist/clustering.js"
+    },
+    "./llm": {
+      "types": "./dist/llm.d.ts",
+      "default": "./dist/llm.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
+  }
+}

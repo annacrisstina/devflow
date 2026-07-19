@@ -36,6 +36,18 @@ export type ApiConfig = {
    * uses the same env variables, so tuning detection tunes reads with it.
    */
   flake: FlakeReadConfig;
+  /**
+   * AI layer (ADR-0017): embeddings power search/clustering (local, key-free);
+   * the LLM key gates hypotheses — absent key means the feature is off.
+   */
+  ai: {
+    embeddings: boolean;
+    modelDir: string | undefined;
+    clusterThreshold: number;
+    apiKey: string | undefined;
+    model: string;
+    baseUrl: string;
+  };
 };
 
 type RawEnv = {
@@ -51,6 +63,12 @@ type RawEnv = {
   DEVFLOW_GITHUB_CLIENT_SECRET: string;
   DEVFLOW_GITHUB_APP_SLUG: string;
   DEVFLOW_WEB_DIST?: string;
+  DEVFLOW_AI_EMBEDDINGS: string;
+  DEVFLOW_AI_MODEL_DIR?: string;
+  DEVFLOW_AI_CLUSTER_THRESHOLD: number;
+  DEVFLOW_AI_API_KEY?: string;
+  DEVFLOW_AI_MODEL: string;
+  DEVFLOW_AI_BASE_URL: string;
   DEVFLOW_FLAKE_HALF_LIFE_DAYS: number;
   DEVFLOW_FLAKE_SATURATION_K: number;
   DEVFLOW_FLAKE_FLAKY_THRESHOLD: number;
@@ -95,6 +113,19 @@ const schema = {
       default: 'postgresql://devflow:devflow_local@127.0.0.1:5432/devflow',
     },
     DEVFLOW_REDIS_URL: { type: 'string', default: 'redis://127.0.0.1:6379' },
+    // AI layer (ADR-0017/0018/0019). Embeddings are local and default on;
+    // the LLM has no default key, ever — no key, no LLM.
+    DEVFLOW_AI_EMBEDDINGS: { type: 'string', enum: ['on', 'off'], default: 'on' },
+    DEVFLOW_AI_MODEL_DIR: { type: 'string' },
+    DEVFLOW_AI_CLUSTER_THRESHOLD: {
+      type: 'number',
+      default: 0.8,
+      exclusiveMinimum: 0,
+      maximum: 1,
+    },
+    DEVFLOW_AI_API_KEY: { type: 'string' },
+    DEVFLOW_AI_MODEL: { type: 'string', default: 'claude-haiku-4-5' },
+    DEVFLOW_AI_BASE_URL: { type: 'string', default: 'https://api.anthropic.com' },
     // Mirror of the worker's detection knobs (ADR-0010 reference defaults);
     // exclusiveMinimum guards the divisions in the decay arithmetic.
     DEVFLOW_FLAKE_HALF_LIFE_DAYS: { type: 'number', default: 14, exclusiveMinimum: 0 },
@@ -143,6 +174,14 @@ export function loadConfig(): ApiConfig {
     githubClientSecret: env.DEVFLOW_GITHUB_CLIENT_SECRET,
     githubAppSlug: env.DEVFLOW_GITHUB_APP_SLUG,
     webDist: env.DEVFLOW_WEB_DIST,
+    ai: {
+      embeddings: env.DEVFLOW_AI_EMBEDDINGS === 'on',
+      modelDir: env.DEVFLOW_AI_MODEL_DIR,
+      clusterThreshold: env.DEVFLOW_AI_CLUSTER_THRESHOLD,
+      apiKey: env.DEVFLOW_AI_API_KEY,
+      model: env.DEVFLOW_AI_MODEL,
+      baseUrl: env.DEVFLOW_AI_BASE_URL.replace(/\/$/, ''),
+    },
     flake: {
       halfLifeDays: env.DEVFLOW_FLAKE_HALF_LIFE_DAYS,
       saturationK: env.DEVFLOW_FLAKE_SATURATION_K,

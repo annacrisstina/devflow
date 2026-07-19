@@ -38,7 +38,7 @@
 - **Alternatives:** raw `ws` (rejected: Socket.IO's rooms/reconnection/fallbacks are exactly the boilerplate we shouldn't rewrite); Supabase Realtime (rejected: ecosystem lock-in).
 - **Trade-offs accepted:** scaling WebSockets requires sticky sessions + the Redis adapter — accepted, and it is itself interview material.
 
-## D5. Vector search: pgvector in the same Postgres — Committed
+## D5. Vector search: pgvector in the same Postgres — Locked (ADR-0018)
 
 - **Decision:** embeddings for semantic search over failure history live in Postgres via the pgvector extension. The dev compose image is `pgvector/pgvector:pg17` from day one so the extension is always available and local volumes never need invalidating.
 - **Motivation:** one source of truth, one backup story, no extra service to operate. Verified working locally (pgvector 0.8.5, `CREATE EXTENSION vector` succeeds).
@@ -95,7 +95,7 @@
 - **Dependabot**: weekly, grouped minor+patch as one PR, majors individually (each breaking change gets its own review and revert point), github-actions ecosystem covered.
 - **pnpm 10** blocks dependency lifecycle scripts by default.
 
-## D14. AI boundary — Locked (product principle, see project-overview.md)
+## D14. AI boundary — Locked (formalized mechanically in ADR-0017; see project-overview.md)
 
 - **Decision:** AI assists (clustering, summarization, semantic search), never decides (quarantine, flakiness verdicts, auto-resolution).
 - **Motivation:** trust is the product's currency — a false "this is flaky" verdict from a hallucinating model destroys it. Deterministic detection with configurable thresholds + human approval is both better engineering and better interview material ("here is where I chose NOT to use AI, and why").
@@ -122,5 +122,8 @@
 | [0014](../adr/0014-public-api-conventions.md)                 | Public API conventions          | Accepted | `/api/v1`, `{error:{code,message}}`, limit/offset+total, bigints-as-strings. Decay-at-read: stored scores unwound to evidence, half-life-decayed, re-saturated — in SQL, so ordering/filters/pagination are consistent; SQL ≡ TS pinned by tests.                                       |
 | [0015](../adr/0015-live-feed-transport.md)                    | Live feed transport             | Accepted | Worker → Redis pub/sub → Socket.IO workspace rooms; session-cookie handshake; explicitly best-effort (REST is truth, events trigger refetches). Rejected: Redis adapter now, LISTEN/NOTIFY, SSE, durable replay.                                                                        |
 | [0016](../adr/0016-quarantine-workflow.md)                    | Quarantine workflow             | Accepted | Proposals are a query (no automated writer of quarantine state); decisions are durable rows (approve/dismiss/lift, partial unique index on active). Annotation labels quarantined failures; conclusion stays `neutral`.                                                                 |
+| [0017](../adr/0017-the-ai-boundary.md)                        | The AI boundary, formalized     | Accepted | All AI code in `@devflow/ai` with enumerated call sites + a grep-verifiable deletion test; two advisory output sinks; the LLM runs only on human click; prompt-injection posture recorded. D14 made structural.                                                                         |
+| [0018](../adr/0018-local-embeddings-and-semantic-search.md)   | Local embeddings + search       | Accepted | MiniLM (384-dim ONNX, CPU, ~25 MB) in-process — self-host-complete, measured 2–6 ms/text; content-addressed `failure_embeddings` (embed once per distinct text); exact cosine with an HNSW trigger; clustering = deterministic single-link geometry.                                    |
+| [0019](../adr/0019-llm-provider-seam-and-hypotheses.md)       | LLM seam + hypotheses           | Accepted | One-method provider interface; plain-fetch Claude client (BYO key, `claude-haiku-4-5` default, 800-token cap); human-triggered, digest-cached, provenance-stamped advisory text. Rejected: SDK, multi-provider-now, background generation.                                              |
 
-ADRs expected in upcoming milestones: AI boundary formalization + embedding/model choices (M5).
+No ADRs are pre-committed for M6; hardening decisions (retention, compose topology, observability stack) get ADRs as they are made.

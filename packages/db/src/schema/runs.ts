@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
@@ -113,11 +114,19 @@ export const testResults = pgTable(
     durationMs: integer('duration_ms'),
     failureMessage: text('failure_message'),
     failureDetails: text('failure_details'),
+    // sha256 of the canonical failure text (ADR-0018) — set by the AI
+    // layer's embedding stage for failed/error rows; NULL when the layer is
+    // disabled or amputated (nothing else reads it then).
+    failureHash: text('failure_hash'),
     file: text('file'),
   },
   (table) => [
     index('test_results_workflow_run_idx').on(table.workflowRunId),
     // M3's lookup shape: history of one test across runs.
     index('test_results_test_identity_idx').on(table.suiteName, table.className, table.testName),
+    // "Which tests hit this failure" (ADR-0018); partial — most rows pass.
+    index('test_results_failure_hash_idx')
+      .on(table.failureHash)
+      .where(sql`${table.failureHash} IS NOT NULL`),
   ],
 );
