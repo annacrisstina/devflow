@@ -9,6 +9,7 @@ import { healthRoutes } from './routes/health.js';
 import { flakyTestRoutes } from './routes/v1/flaky-tests.js';
 import { installationRoutes } from './routes/v1/installations.js';
 import { meRoutes } from './routes/v1/me.js';
+import { quarantineRoutes } from './routes/v1/quarantine.js';
 import { runRoutes } from './routes/v1/runs.js';
 import { workspaceRoutes } from './routes/v1/workspaces.js';
 import { webhookRoutes } from './routes/webhooks.js';
@@ -51,6 +52,7 @@ export async function buildApp(config: ApiConfig): Promise<FastifyInstance> {
   await app.register(flakyTestRoutes, { flake: config.flake });
   await app.register(runRoutes);
   await app.register(installationRoutes, { config });
+  await app.register(quarantineRoutes, { flake: config.flake });
 
   return app;
 }

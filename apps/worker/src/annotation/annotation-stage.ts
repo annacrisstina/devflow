@@ -1,5 +1,6 @@
 import type { Db } from '@devflow/db/client';
 import { testFlakeScores } from '@devflow/db/schema/flake-scores';
+import { quarantineRecords } from '@devflow/db/schema/quarantine';
 import { testResults, workflowRuns } from '@devflow/db/schema/runs';
 import { and, eq, inArray, ne } from 'drizzle-orm';
 import type { Logger } from 'pino';
@@ -24,9 +25,12 @@ type FlaggedTest = {
   className: string;
   testName: string;
   verdict: string;
-  score: number;
+  /** Null for tests flagged only by quarantine (no score row to cite). */
+  score: number | null;
   divergenceEvidence: number;
   transitionEvidence: number;
+  /** Human-approved quarantine (ADR-0016) — the stronger statement. */
+  quarantined: boolean;
 };
 
 /**
@@ -53,21 +57,53 @@ export function createAnnotationStage(config: AnnotationStageConfig): Annotation
 
     const flagged: FlaggedTest[] = [];
     if (failing.length > 0) {
-      const scores = await config.db
-        .select()
-        .from(testFlakeScores)
-        .where(
-          and(
-            eq(testFlakeScores.repositoryId, run.repositoryId),
-            ne(testFlakeScores.verdict, 'healthy'),
+      const identityKey = (t: { suiteName: string; className: string; testName: string }) =>
+        `${t.suiteName}\u0000${t.className}\u0000${t.testName}`;
+      const failingKeys = new Set(failing.map(identityKey));
+
+      // A failing test is flagged by a non-healthy verdict OR by an active
+      // human quarantine (ADR-0016) — quarantine is the stronger statement:
+      // it labels the failure even when the score has since decayed.
+      const [scores, activeQuarantine] = await Promise.all([
+        config.db
+          .select()
+          .from(testFlakeScores)
+          .where(
+            and(
+              eq(testFlakeScores.repositoryId, run.repositoryId),
+              ne(testFlakeScores.verdict, 'healthy'),
+            ),
           ),
-        );
-      const failingKeys = new Set(
-        failing.map((f) => `${f.suiteName}\u0000${f.className}\u0000${f.testName}`),
-      );
+        config.db
+          .select()
+          .from(quarantineRecords)
+          .where(
+            and(
+              eq(quarantineRecords.repositoryId, run.repositoryId),
+              eq(quarantineRecords.status, 'active'),
+            ),
+          ),
+      ]);
+      const quarantinedKeys = new Set(activeQuarantine.map(identityKey));
+
       for (const s of scores) {
-        if (failingKeys.has(`${s.suiteName}\u0000${s.className}\u0000${s.testName}`)) {
-          flagged.push(s);
+        if (failingKeys.has(identityKey(s))) {
+          flagged.push({ ...s, quarantined: quarantinedKeys.has(identityKey(s)) });
+        }
+      }
+      const scoredKeys = new Set(flagged.map(identityKey));
+      for (const q of activeQuarantine) {
+        if (failingKeys.has(identityKey(q)) && !scoredKeys.has(identityKey(q))) {
+          flagged.push({
+            suiteName: q.suiteName,
+            className: q.className,
+            testName: q.testName,
+            verdict: 'quarantined',
+            score: null,
+            divergenceEvidence: 0,
+            transitionEvidence: 0,
+            quarantined: true,
+          });
         }
       }
     }
@@ -128,9 +164,11 @@ export function createAnnotationStage(config: AnnotationStageConfig): Annotation
 }
 
 function flakeReportCheck(flagged: FlaggedTest[], failingCount: number): CheckRunParams {
-  const flaky = flagged.filter((t) => t.verdict === 'flaky').length;
-  const suspected = flagged.length - flaky;
+  const quarantined = flagged.filter((t) => t.quarantined).length;
+  const flaky = flagged.filter((t) => !t.quarantined && t.verdict === 'flaky').length;
+  const suspected = flagged.filter((t) => !t.quarantined && t.verdict === 'suspected').length;
   const title = [
+    quarantined > 0 ? `${quarantined} quarantined` : null,
     flaky > 0 ? `${flaky} known-flaky` : null,
     suspected > 0 ? `${suspected} suspected-flaky` : null,
   ]
@@ -138,11 +176,15 @@ function flakeReportCheck(flagged: FlaggedTest[], failingCount: number): CheckRu
     .join(', ')
     .concat(` among ${failingCount} failing test${failingCount === 1 ? '' : 's'}`);
 
+  // Quarantined first (the strongest, human-made statement), then by score.
   const listed = [...flagged]
-    .sort((a, b) => b.score - a.score)
+    .sort(
+      (a, b) => Number(b.quarantined) - Number(a.quarantined) || (b.score ?? 0) - (a.score ?? 0),
+    )
     .slice(0, MAX_LISTED_TESTS)
     .map(
-      (t) => `| \`${displayName(t)}\` | ${t.verdict} | ${t.score.toFixed(2)} | ${evidence(t)} |`,
+      (t) =>
+        `| \`${displayName(t)}\` | ${verdictLabel(t)} | ${t.score === null ? '—' : t.score.toFixed(2)} | ${evidence(t)} |`,
     );
 
   const overflow =
@@ -154,6 +196,13 @@ function flakeReportCheck(flagged: FlaggedTest[], failingCount: number): CheckRu
     'These failing tests have a history of flaky behavior in this repository.',
     'The verdicts below are advisory — they never block a merge — and each one',
     'is explained by its evidence (ADR-0010: deterministic, no ML).',
+    ...(quarantined > 0
+      ? [
+          '',
+          'Quarantined tests were approved as flaky by a maintainer (ADR-0016):',
+          'their failures in this run are expected noise, safe to ignore.',
+        ]
+      : []),
     '',
     '| Test | Verdict | Score | Evidence |',
     '| --- | --- | --- | --- |',
@@ -162,6 +211,11 @@ function flakeReportCheck(flagged: FlaggedTest[], failingCount: number): CheckRu
   ].join('\n');
 
   return { name: CHECK_NAME, conclusion: 'neutral', output: { title, summary } };
+}
+
+function verdictLabel(t: FlaggedTest): string {
+  if (!t.quarantined) return t.verdict;
+  return t.verdict === 'quarantined' ? 'quarantined' : `${t.verdict} · quarantined`;
 }
 
 function allClearCheck(failingCount: number): CheckRunParams {
@@ -184,6 +238,9 @@ function displayName(t: FlaggedTest): string {
 
 function evidence(t: FlaggedTest): string {
   const parts: string[] = [];
+  if (t.quarantined) {
+    parts.push('human-approved quarantine');
+  }
   if (t.divergenceEvidence > 0) {
     parts.push(
       `${t.divergenceEvidence} same-commit pass/fail divergence${t.divergenceEvidence === 1 ? '' : 's'}`,

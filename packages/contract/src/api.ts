@@ -104,6 +104,28 @@ export type FlakyTestDetail = FlakyTestSummary & {
   history: TestOutcomeEntry[];
 };
 
+export type QuarantineStatus = 'active' | 'dismissed' | 'lifted';
+
+/**
+ * A human quarantine decision (ADR-0016). Proposals are not records — they
+ * are flaky-verdict scores with no record yet, served as FlakyTestSummary.
+ */
+export type QuarantineRecord = {
+  id: string;
+  repositoryId: string;
+  repository: string;
+  suiteName: string;
+  className: string;
+  testName: string;
+  status: QuarantineStatus;
+  reason: string | null;
+  createdAt: string;
+  /** Display name of the deciding user (null if the account was removed). */
+  createdBy: string | null;
+  liftedAt: string | null;
+  liftedBy: string | null;
+};
+
 export type RunSummary = {
   id: string;
   githubRunId: string;
