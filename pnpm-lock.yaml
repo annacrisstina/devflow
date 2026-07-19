@@ -127,6 +127,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@devflow/ai':
+        specifier: workspace:^
+        version: link:../../packages/ai
       '@devflow/contract':
         specifier: workspace:^
         version: link:../../packages/contract

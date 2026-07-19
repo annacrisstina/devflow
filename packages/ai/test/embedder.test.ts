@@ -16,7 +16,9 @@ function cosine(a: Float32Array, b: Float32Array): number {
  * may vary in low decimals across platforms).
  */
 describe('embedder (real MiniLM inference)', () => {
-  const embedder = createEmbedder();
+  // CI points this at a cached directory; locally it defaults to the package cache.
+  const modelDir = process.env.DEVFLOW_AI_MODEL_DIR;
+  const embedder = createEmbedder(modelDir === undefined ? {} : { modelDir });
 
   it('produces normalized vectors of the declared dimension', { timeout: 120_000 }, async () => {
     const [vector] = await embedder.embed(['timeout waiting for payment gateway']);
@@ -38,7 +40,7 @@ describe('embedder (real MiniLM inference)', () => {
   });
 
   it('returns [] for [] without loading anything', async () => {
-    expect(await createEmbedder().embed([])).toEqual([]);
+    expect(await createEmbedder({ modelDir: '/nonexistent/never-touched' }).embed([])).toEqual([]);
   });
 
   it('embeds batches with one vector per input, order-aligned', { timeout: 120_000 }, async () => {

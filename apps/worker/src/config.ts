@@ -22,6 +22,12 @@ export type WorkerConfig = {
   maxXmlEntryBytes: number;
   /** ADR-0010 knobs; defaults deliberately under-flag. */
   detection: DetectionConfig;
+  /** AI layer (ADR-0017/0018): embeddings on/off, model cache, per-run cap. */
+  ai: {
+    embeddings: boolean;
+    modelDir: string | undefined;
+    embedMaxPerRun: number;
+  };
 };
 
 type RawEnv = {
@@ -34,6 +40,9 @@ type RawEnv = {
   DEVFLOW_GITHUB_API_URL: string;
   DEVFLOW_MAX_ARTIFACT_BYTES: number;
   DEVFLOW_MAX_XML_ENTRY_BYTES: number;
+  DEVFLOW_AI_EMBEDDINGS: string;
+  DEVFLOW_AI_MODEL_DIR?: string;
+  DEVFLOW_AI_EMBED_MAX_PER_RUN: number;
   DEVFLOW_FLAKE_HALF_LIFE_DAYS: number;
   DEVFLOW_FLAKE_SATURATION_K: number;
   DEVFLOW_FLAKE_FLAKY_THRESHOLD: number;
@@ -62,6 +71,11 @@ const schema = {
     DEVFLOW_GITHUB_API_URL: { type: 'string', default: 'https://api.github.com' },
     DEVFLOW_MAX_ARTIFACT_BYTES: { type: 'number', default: 104_857_600 },
     DEVFLOW_MAX_XML_ENTRY_BYTES: { type: 'number', default: 52_428_800 },
+    // AI layer (ADR-0018). Embeddings default ON — they are local and free;
+    // 'off' disables the stage entirely (the amputation flag).
+    DEVFLOW_AI_EMBEDDINGS: { type: 'string', enum: ['on', 'off'], default: 'on' },
+    DEVFLOW_AI_MODEL_DIR: { type: 'string' },
+    DEVFLOW_AI_EMBED_MAX_PER_RUN: { type: 'number', default: 50, exclusiveMinimum: 0 },
     // Detection knobs (ADR-0010). Defaults are the ADR's reference values;
     // exclusiveMinimum guards the division in the scoring formula.
     DEVFLOW_FLAKE_HALF_LIFE_DAYS: { type: 'number', default: 14, exclusiveMinimum: 0 },
@@ -110,6 +124,11 @@ export function loadConfig(): WorkerConfig {
       saturationK: env.DEVFLOW_FLAKE_SATURATION_K,
       flakyThreshold: env.DEVFLOW_FLAKE_FLAKY_THRESHOLD,
       suspectThreshold: env.DEVFLOW_FLAKE_SUSPECT_THRESHOLD,
+    },
+    ai: {
+      embeddings: env.DEVFLOW_AI_EMBEDDINGS === 'on',
+      modelDir: env.DEVFLOW_AI_MODEL_DIR,
+      embedMaxPerRun: env.DEVFLOW_AI_EMBED_MAX_PER_RUN,
     },
   };
 }

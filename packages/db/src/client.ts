@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 
+import { aiHypotheses, failureEmbeddings } from './schema/ai.js';
 import { accounts, sessions, users, verificationTokens } from './schema/auth.js';
 import { testFlakeScores } from './schema/flake-scores.js';
 import { quarantineRecords } from './schema/quarantine.js';
@@ -23,6 +24,8 @@ const schema = {
   workspaceMembers,
   installations,
   quarantineRecords,
+  failureEmbeddings,
+  aiHypotheses,
 };
 
 export type Db = ReturnType<typeof drizzle<typeof schema>>;

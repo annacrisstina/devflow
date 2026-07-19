@@ -33,6 +33,10 @@
     "./schema/quarantine": {
       "types": "./dist/schema/quarantine.d.ts",
       "default": "./dist/schema/quarantine.js"
+    },
+    "./schema/ai": {
+      "types": "./dist/schema/ai.d.ts",
+      "default": "./dist/schema/ai.js"
     }
   },
   "files": [

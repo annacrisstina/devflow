@@ -29,6 +29,13 @@
       "when": 1784451181336,
       "tag": "0003_add-workspace-tenancy",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784459884817,
+      "tag": "0004_add-ai-tables",
+      "breakpoints": true
     }
   ]
 }
