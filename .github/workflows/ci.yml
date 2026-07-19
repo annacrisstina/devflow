@@ -73,6 +73,19 @@ jobs:
       - name: Verify
         run: pnpm verify
 
+      # Dogfooding (M6): DevFlow ingests its own test results. if: always()
+      # is the point — failing runs must upload too, or flake detection has
+      # nothing to detect.
+      - name: Upload JUnit results for DevFlow ingestion
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results
+          path: |
+            apps/*/test-results/junit.xml
+            packages/*/test-results/junit.xml
+          if-no-files-found: warn
+
       - name: Validate compose file
         run: docker compose config --quiet
 
