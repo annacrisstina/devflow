@@ -21,4 +21,23 @@ export default tseslint.config(
       'no-restricted-exports': 'off',
     },
   },
+  {
+    // Plain-JS operational scripts (e2e harness, demo seeder): declare the
+    // Node globals the TS configs get from @types/node.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+      },
+    },
+  },
 );
