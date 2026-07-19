@@ -1,0 +1,14 @@
+# Keep the build context tiny (drvfs makes context transfer expensive) and
+# deterministic: dependencies and build outputs are produced INSIDE the
+# image from the lockfile, never copied from the host.
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+.git
+.env
+docs
+*.md
+!README.md
+.vscode
+.github

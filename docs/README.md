@@ -3,6 +3,8 @@
 - [adr/](adr/) — Architecture Decision Records, the "why" behind structural choices. Start with [ADR-0001](adr/0001-record-architecture-decisions.md).
 - [conventions.md](conventions.md) — naming, coding standards, commit convention, branch strategy, dev environment.
 - [architecture/](architecture/) — system architecture documentation (diagrams, data flow). Populated from the first functional milestone onward.
+- [self-hosting.md](self-hosting.md) — running the whole product in containers with one command (ADR-0020).
+- [github-app-setup.md](github-app-setup.md) — creating and configuring the GitHub App a deployment needs.
 
 ## Project memory
 

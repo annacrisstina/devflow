@@ -1,6 +1,11 @@
-# Local development infrastructure only. Application services run via `pnpm dev`
-# so that hot-reload and debugging stay native; only stateful backing services
-# live in containers. See docs/conventions.md#development-environment.
+# Two modes, one file (ADR-0020):
+#   docker compose up                  -> dev infrastructure only (Postgres,
+#     Redis); application code runs natively via `pnpm dev` (D12, unchanged).
+#   docker compose --profile full up   -> the whole product in containers:
+#     migrate (one-shot) + api (serving the dashboard) + worker. This is the
+#     self-hosting path — see docs/self-hosting.md.
+# Secrets interpolate from repo-root .env with empty fallbacks so the dev
+# path never demands them; the apps' own boot validation is the guard.
 name: devflow
 
 services:
@@ -40,6 +45,93 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  migrate:
+    profiles: ['full']
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: devflow-api
+    command: ['node', 'dist/migrate.js']
+    environment:
+      DEVFLOW_DATABASE_URL: postgresql://${POSTGRES_USER:-devflow}:${POSTGRES_PASSWORD:-devflow_local}@postgres:5432/${POSTGRES_DB:-devflow}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    profiles: ['full']
+    image: devflow-api
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DEVFLOW_DATABASE_URL: postgresql://${POSTGRES_USER:-devflow}:${POSTGRES_PASSWORD:-devflow_local}@postgres:5432/${POSTGRES_DB:-devflow}
+      DEVFLOW_REDIS_URL: redis://redis:6379
+      DEVFLOW_API_HOST: 0.0.0.0
+      DEVFLOW_APP_URL: ${DEVFLOW_APP_URL:-http://127.0.0.1:3001}
+      DEVFLOW_TRUST_PROXY: ${DEVFLOW_TRUST_PROXY:-off}
+      DEVFLOW_GITHUB_WEBHOOK_SECRET: ${DEVFLOW_GITHUB_WEBHOOK_SECRET:-}
+      DEVFLOW_AUTH_SECRET: ${DEVFLOW_AUTH_SECRET:-}
+      DEVFLOW_GITHUB_CLIENT_ID: ${DEVFLOW_GITHUB_CLIENT_ID:-}
+      DEVFLOW_GITHUB_CLIENT_SECRET: ${DEVFLOW_GITHUB_CLIENT_SECRET:-}
+      DEVFLOW_GITHUB_APP_SLUG: ${DEVFLOW_GITHUB_APP_SLUG:-}
+      DEVFLOW_AI_API_KEY: ${DEVFLOW_AI_API_KEY:-}
+      DEVFLOW_AI_MODEL: ${DEVFLOW_AI_MODEL:-claude-haiku-4-5}
+    ports:
+      # Loopback by default: put a TLS-terminating proxy in front for real
+      # deployments (self-hosting guide) and set DEVFLOW_TRUST_PROXY=on.
+      - '${DEVFLOW_API_PUBLISH:-127.0.0.1:3001}:3001'
+    healthcheck:
+      # curl does not exist in node:22-slim; node's fetch does.
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/healthz').then((r)=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    stop_grace_period: 30s
+
+  worker:
+    profiles: ['full']
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    image: devflow-worker
+    environment:
+      DEVFLOW_DATABASE_URL: postgresql://${POSTGRES_USER:-devflow}:${POSTGRES_PASSWORD:-devflow_local}@postgres:5432/${POSTGRES_DB:-devflow}
+      DEVFLOW_REDIS_URL: redis://redis:6379
+      DEVFLOW_WORKER_HOST: 0.0.0.0
+      DEVFLOW_GITHUB_APP_ID: ${DEVFLOW_GITHUB_APP_ID:-}
+      DEVFLOW_GITHUB_APP_PRIVATE_KEY_BASE64: ${DEVFLOW_GITHUB_APP_PRIVATE_KEY_BASE64:-}
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3002/healthz').then((r)=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    stop_grace_period: 30s
 
 volumes:
   postgres-data:

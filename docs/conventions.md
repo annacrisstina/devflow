@@ -49,7 +49,7 @@ GitHub Flow, described in [CONTRIBUTING.md](../CONTRIBUTING.md#branch-strategy-g
 
 ## Development environment
 
-- Stateful backing services (Postgres, Redis) run in Docker via `compose.yaml`; application code runs natively via `pnpm dev` for fast feedback and debuggability.
+- Stateful backing services (Postgres, Redis) run in Docker via `compose.yaml`; application code runs natively via `pnpm dev` for fast feedback and debuggability. (The same file's `full` profile containerizes the apps for self-hosting — ADR-0020, [self-hosting.md](self-hosting.md) — and changes nothing about the dev default.)
 - Configuration comes exclusively from environment variables (12-factor). `.env.example` is the always-up-to-date template; `.env` is gitignored and never committed.
 - `pnpm verify` is the single command that answers "is my working tree healthy?" — CI runs exactly the same thing, so green locally means green remotely.
 
