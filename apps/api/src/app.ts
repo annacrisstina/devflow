@@ -1,5 +1,6 @@
 import fastifyStatic from '@fastify/static';
 import { createEmbedder, type Embedder } from '@devflow/ai/embedder';
+import { createAnthropicProvider } from '@devflow/ai/llm';
 import { createDbClient, type Db } from '@devflow/db/client';
 import { createRedisConnection } from '@devflow/queue/connection';
 import { createIngestQueue, type IngestQueue } from '@devflow/queue/ingest';
@@ -10,6 +11,7 @@ import type { ApiConfig } from './config.js';
 import { liveFeedPlugin } from './live/socket-plugin.js';
 import { healthRoutes } from './routes/health.js';
 import { flakyTestRoutes } from './routes/v1/flaky-tests.js';
+import { hypothesisRoutes } from './routes/v1/hypothesis.js';
 import { insightsRoutes } from './routes/v1/insights.js';
 import { installationRoutes } from './routes/v1/installations.js';
 import { meRoutes } from './routes/v1/me.js';
@@ -78,6 +80,18 @@ export async function buildApp(
   await app.register(insightsRoutes, {
     embedder,
     clusterThreshold: config.ai.clusterThreshold,
+  });
+  // BYO key (ADR-0019): no key, no provider, feature cleanly off.
+  await app.register(hypothesisRoutes, {
+    provider:
+      config.ai.apiKey === undefined
+        ? undefined
+        : createAnthropicProvider({
+            apiKey: config.ai.apiKey,
+            model: config.ai.model,
+            baseUrl: config.ai.baseUrl,
+          }),
+    flake: config.flake,
   });
   await app.register(liveFeedPlugin, { redisUrl: config.redisUrl });
 

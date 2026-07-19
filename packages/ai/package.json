@@ -17,6 +17,10 @@
     "./clustering": {
       "types": "./dist/clustering.d.ts",
       "default": "./dist/clustering.js"
+    },
+    "./llm": {
+      "types": "./dist/llm.d.ts",
+      "default": "./dist/llm.js"
     }
   },
   "files": [
