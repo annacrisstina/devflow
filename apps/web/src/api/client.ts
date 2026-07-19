@@ -19,7 +19,12 @@ export class ApiRequestError extends Error {
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
-    headers: { 'content-type': 'application/json', ...init?.headers },
+    headers: {
+      // Only claim a JSON body when one exists: Fastify (correctly) rejects
+      // an empty body under a JSON content-type with 400.
+      ...(init?.body !== undefined ? { 'content-type': 'application/json' } : {}),
+      ...init?.headers,
+    },
   });
   if (!response.ok) {
     let code = 'unknown';
