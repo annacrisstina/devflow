@@ -2,66 +2,62 @@
 
 > **The operational handoff.** Always reflects the latest repository state; updated at the end of EVERY working session. A new engineer (human or AI) should be able to continue from this file alone, without any chat history. Background knowledge lives in [../project-memory/](../project-memory/); read [project-overview.md](../project-memory/project-overview.md) and [implementation-rules.md](../project-memory/implementation-rules.md) first.
 
-**Last updated:** 2026-07-18 (M3 implementation complete on `feat/flakiness-detection`)
+**Last updated:** 2026-07-19 (M4 implemented on `feat/web-dashboard`; awaiting founder review + PR)
 
 ## Current repository status
 
-- **Branch `feat/flakiness-detection`** carries the complete Milestone 3 implementation as six logically separated commits (sequence below). `main` is at `2acbc95` (M2 post-merge closeout docs), in sync with origin.
-- **Next concrete step: founder pushes the branch and opens the PR.** Push/PR/merge are founder actions (no git credentials in the engineering environment).
-- `pnpm verify` **green** (72 tests across the workspace); compose healthy; migrations 0000–0002 applied locally; a scripted live e2e passed (see below) and its throwaway database/queue state was cleaned up afterwards.
-- ⚠️ Standing from M2: both M1 and M2 merged as merge commits, not squash — enforce squash/linear history in branch protection or consciously amend D11. Dependabot queue (5 branches) still awaiting individual review. Merged remote branches can be deleted on GitHub.
+- **Branch `feat/web-dashboard`** (created from `main` = `dc3e41f`, the M3 merge): **Milestone 4 complete** — code, tests, ADRs 0012–0016, and all documentation, committed and verified. **Push/PR/merge are founder actions** (no git credentials on this machine).
+- The branch also **folds the former `docs/m3-post-merge-closeout` content** (M3 post-merge facts + the simplified-closeout amendment) — that branch and the old `chore/m2-post-merge-closeout` can be **deleted unmerged**; nothing on them is unique anymore.
+- Milestones 0–3 merged on `main` (PRs #6/#7/#8); CI on `main` green. M4's architecture review was founder-approved 2026-07-19 before implementation started (design step honored).
+- Local infra: compose healthy; migrations 0000–**0003** apply cleanly; no leftover e2e state (`devflow_e2e` dropped, Redis logical db 5 flushed, no leaked processes — verified via `ps`, the M3 lesson).
+- **Dependabot queue (5 open PRs, unchanged):** ESLint 10, TypeScript 6, commitlint majors ×2, actions group — review individually per D13. Note: ESLint 10 / TS 6 now also touch `apps/web`.
 
-## What Milestone 3 added (all on `feat/flakiness-detection`)
+## What Milestone 4 added (branch `feat/web-dashboard`)
 
-- **ADR-0010** (detection algorithm — the project's most important ADR) and **ADR-0011** (advisory Checks-API annotation). ⚠️ ADR-0011 was authored in this session's autonomous continuation — the founder should review it explicitly before the PR merges.
-- `packages/db`: migration 0002 — `test_flake_scores` (one row per test identity; evidence counts stored for explainability; unique identity index + repo/verdict index), `repositories.default_branch` (transition-evidence gate; never clobbered by payloads omitting it), `workflow_runs.flake_check_run_id` (annotation idempotency).
-- `apps/worker/src/detection/`: `score.ts` (pure: history → assessment; divergence weight 1.0, transitions 0.25 on the default branch only, 14d half-life decay, saturation K=2, always-failing scores zero) and `detection-stage.ts` (event-driven recompute after results persist; recompute set = failed-in-run ∪ non-healthy-present-in-run; 90-day bounded history; worst-status-per-run aggregation for parameterized tests; upserts).
-- `apps/worker/src/annotation/annotation-stage.ts`: `DevFlow flake report` check run on the run's head sha — always `neutral`, silent unless a failing test carries a non-healthy verdict, POST once then PATCH via `flake_check_run_id`, PATCH-to-all-clear on a reprocess that stops flagging, evidence in plain language, 20-test cap with stated overflow.
-- GitHub client: `createCheckRun` / `updateCheckRun` (404/410 permanent, else transient — same taxonomy as M2).
-- Pipeline: artifact stage returns `succeeded | no_artifacts`; detection runs only on `succeeded`; annotation `PermanentJobError`s are absorbed with a warning (results + scores are already durable), transient errors retry the convergent job.
-- Config: `DEVFLOW_FLAKE_HALF_LIFE_DAYS / _SATURATION_K / _FLAKY_THRESHOLD / _SUSPECT_THRESHOLD` (defaults 14 / 2.0 / 0.5 / 0.25, chosen to under-flag; boot-time cross-field validation suspect < flaky). `.env.example` documents them.
-- Docs: dev-log M3 entry, roadmap M3 → completed, ADR table + session history + interview-notes §4 updated, github-app-setup.md now requires **Checks: read-and-write** (with the re-approval path for pre-M3 Apps), `docs/architecture/` filled from real code.
+- **Migration 0003 + ADR-0012:** Auth.js tables (text UUID ids — adapter contract), `workspaces`, `workspace_members`, `installations` (nullable `workspace_id` = unclaimed; backfilled from pre-M4 `repositories.installation_id`), `quarantine_records` (partial unique index on active identities). Tenancy resolves at read time (repo → installation → workspace); ingest path untouched; isolation is app-layer with a cross-tenant denial test per endpoint (RLS deferred with a written trigger).
+- **ADR-0013:** `@auth/core` mounted on Fastify (`apps/api/src/auth/`), database sessions, GitHub App's own OAuth credentials. Session auth for API routes = one indexed join on the cookie.
+- **ADR-0014 + `/api/v1`:** me / workspaces / repositories / flaky-tests (+detail w/ history) / runs / quarantine / claiming. `{error:{code,message}}`, limit-offset+total, bigints as strings, ISO timestamps (`@devflow/contract` is the shared type-only wire contract). **Decay-at-read** (closes the M3 stale-score debt): evidence-unwind → half-life decay → re-saturate, computed in SQL for correct ordering/filtering/pagination; SQL ≡ TS pinned by tests; same `DEVFLOW_FLAKE_*` knobs, now read by the API too.
+- **Claiming:** POST `/api/v1/workspaces/:id/installations/link` → signed state → GitHub install page → Setup URL callback `/api/github/setup` verifies state+session and binds the installation. `installation` webhooks → `PROCESS_INSTALLATION_EVENT` job → worker syncs account fields / `uninstalled_at`.
+- **ADR-0016 quarantine:** proposals are a query (effective-flaky ∧ no active/dismissed record); human decisions are rows; annotation stage labels actively-quarantined failing tests — conclusion stays `neutral` (ADR-0011 intact).
+- **ADR-0015 live feed:** worker publishes to `devflow:live-events` (workspace resolved at publish; fire-and-forget), API Socket.IO fans out to `ws:<id>` rooms; handshake auth = session cookie; best-effort by contract (REST is truth; polling cut line stays one line).
+- **`apps/web`:** Vite React SPA (react-router, TanStack Query, Tailwind), same-origin (dev proxy / prod `@fastify/static` behind `DEVFLOW_WEB_DIST`). Login → create workspace → connect → repos → ranking → detail → live runs → quarantine tabs.
+- **New env** (`.env.example` documents all): `DEVFLOW_APP_URL`, `DEVFLOW_AUTH_SECRET`, `DEVFLOW_GITHUB_CLIENT_ID/SECRET`, `DEVFLOW_GITHUB_APP_SLUG`, optional `DEVFLOW_WEB_DIST`.
 
 ### Verification actually run (not asserted)
 
-- `pnpm verify` green: format, lint, typecheck, build, 72 tests (detection units pin ADR-0010's reference arithmetic; detection/annotation integration suites run on real Postgres; check-run client tests on MockAgent).
-- **Live local e2e** (scripts in the session scratchpad, throwaway `devflow_e2e` db since dropped): real API (port 3199) + real worker + stub GitHub API — three signed deliveries (fail@sha-A run 9001, pass@sha-A run 9002, fail@sha-B run 9003, same PR branch) → all `succeeded` → `test_flake_scores`: score **0.3323**, verdict **suspected**, 1 divergence / 0 transitions (matches ADR math exactly) → stub received exactly one `POST /check-runs` (neutral, title "1 suspected-flaky among 1 failing test", evidence table) → `flake_check_run_id = 424242` persisted → redelivered GUID: HTTP 200 duplicate, state converged (1 score row, 1 check). Note: a redelivery of a _completed_ job does not reprocess while the completed job is retained (`removeOnComplete: {count:1000}` jobId dedup — documented M2 behavior); the PATCH path triggers on genuine reprocessing and is covered by integration tests.
-
-### Commit sequence (on the branch)
-
-1. `feat(db): add flake score schema, default branch and check-run tracking` — packages/db + migration 0002.
-2. `feat(worker): implement deterministic flakiness scoring` — detection/score.ts + its unit tests + ADR-0010.
-3. `feat(worker): recompute flake scores after each ingested run` — detection-stage, config knobs, normalize-run default-branch capture, artifact-stage outcome + tests.
-4. `feat(worker): add advisory check-run annotation for flaky failures` — annotation stage, client check-run endpoints, ADR-0011, github-app-setup update + tests.
-5. `feat(worker): wire detection and annotation into the ingest pipeline` — process-job/main wiring + pipeline tests.
-6. `docs(docs): record milestone 3 across project memory and architecture docs`.
+- **`pnpm verify` green: 129 tests** across db (16), queue, api (72), worker (59) — including cross-tenant denial per endpoint, ADR-0010-pinned decay arithmetic + SQL≡TS equality, signed-state tamper/expiry/theft cases, quarantine state machine, room isolation on real Redis.
+- **Scripted live e2e 14/14** (script preserved this session in scratchpad; throwaway db dropped): claim → six deliveries → 0.3333/suspected (exact ADR math) → neutral suspected-flaky check → flaky 0.6 → API ranking/runs/history → proposal → approve → next check "1 quarantined…" + `human-approved quarantine`, still neutral → 21 workspace-scoped socket events → redelivery converged. Also live-verified: API serving the built SPA (index, client-route fallback, JSON 401/404 preserved).
+- E2E found and fixed a real bug pre-commit: the SPA's fetch wrapper sent a JSON content-type on body-less POSTs (Fastify 400) — `fix(web)` commit.
 
 ## Open founder items
 
-1. **Review ADR-0011** (authored autonomously; direction was fixed by ADR-0010's references but the document itself is new).
-2. **Backfill decision:** installation-time backfill (roadmap M3 scope) deliberately deferred — needs a design pass (API listing of historical runs, artifact expiry limits, rate budget for burst jobs). Options: M3.5 mini-milestone, or fold into M6 demo tooling. Detection works from the first ingested run either way.
-3. Commit/push/PR for M3 (sequence above); then real-GitHub verification with **Checks: write** added to the App (github-app-setup.md) — this also makes dogfooding produce real annotations, the calibration data ADR-0010 wants.
-4. Standing housekeeping: squash-vs-D11 branch protection decision, Dependabot queue, merged-branch cleanup.
+1. **Review + push + PR of `feat/web-dashboard`** (PR title is commitlint-checked; suggested: `feat(web): add dashboard, live feed and quarantine workflow`). Delete both stale closeout branches.
+2. **D11 squash decision before this PR merges** (three merge commits so far): enforce squash+linear history in branch protection (recommended) or amend D11.
+3. **GitHub App reconfiguration** ([github-app-setup.md §3b](../github-app-setup.md)): OAuth callback URL + _Request user authorization_ + client secret, Setup URL (+ redirect on update), subscribe `installation` events. Then the real-GitHub pass: browser login, live claim, dogfood annotations.
+4. **Backfill decision** (open since M3): recommendation stands — fold into M6 demo tooling.
+5. Dependabot queue (5 PRs), individually per D13.
+6. **Green-light the M5 design step** (AI layer; AI-boundary + embedding ADRs due) — or reorder M6 first if hardening should precede AI.
 
 ## Known technical debt (accepted, tracked)
 
 1. C2 (M0): commitlint CI job installs the whole workspace.
 2. Rate-limit handling reactive-only; artifact pagination bounded 10×100; no worker health endpoint (ADR-0009).
 3. Docker-less `pnpm verify` fails at the test leg (needs Postgres+Redis) — accepted, fixtures-over-mocks.
-4. M3: per-identity score upserts in a loop (batch only if measured to hurt); stale non-healthy scores persist until the identity reappears (M4 dashboard applies decay-at-read); 403-on-unapproved-Checks-permission retries into the DLQ (documented in ADR-0011).
+4. M3: per-identity score upserts in a loop; 403-on-unapproved-permissions retries into the DLQ (ADR-0011).
+5. M4: effective-score SQL in ORDER BY/WHERE per list request (cached column = recorded escape hatch); socket rooms join at connect time only; duplicate dismissed rows possible under race (harmless); no automated UI tests (stated in apps/web README).
 
 ## Environment notes (this machine)
 
-- WSL2; repo on `/mnt/d` (drvfs) — slow fs; cold server start up to ~16s: **poll, never sleep-once**; check port ownership before trusting a green curl.
+- WSL2; repo on `/mnt/d` (drvfs) — slow fs; cold server start up to ~16s: **poll, never sleep-once**; check port ownership before trusting a green curl. Killing `pnpm exec` children **orphans the tsx grandchild** — spawn detached process groups and kill the group (e2e does this now), and verify death via `ps`.
 - pnpm shim: `~/.local/bin/pnpm` (corepack, no sudo); Turbo needs it on PATH: `export PATH="$HOME/.local/bin:$PATH"`.
 - Node 20.19.4 (`.nvmrc` targets 22; floor `>=20.19.0`). No `jq` (use `node -e`), no `gh` (public-API reads via curl work), no non-interactive git credentials — **push/PR/merge are founder actions**.
 - GitHub username: `annacrisstina`. Contact email: rohike.contact@gmail.com.
-- Gotcha discovered this session: generation tooling can emit literal NUL bytes where `\u0000` escape sequences were intended in source — check with `cat -A` if a string constant misbehaves.
+- pg polls: `rowCount` can be 0 — poll on truthiness of the _condition_, not on "query returned".
 
 ## Things to remember before continuing
 
-- **Milestone workflow + NEVER list** ([implementation-rules.md](../project-memory/implementation-rules.md)): design before files, run verifications for real, founder confirmation at milestone boundaries, PRs only, no AI-attribution trailers in commits.
-- Gate commits on verify with `&&`, never `;`.
+- **Milestone workflow + NEVER list** ([implementation-rules.md](../project-memory/implementation-rules.md)): design before files, run verifications for real, founder confirmation at milestone boundaries, PRs only, no AI-attribution trailers in commits, gate commits on verify with `&&`.
+- **No post-merge closeout branches** (post-M3 amendment, in force): milestone docs land on the milestone branch before the PR — this file, dev-log, memory, ADRs all updated _here_, as done for M4.
 - Update this file every session; dev-log every milestone; project memory on significant decisions.
 - The founder communicates in Romanian; the repository is entirely in English.
-- **Next milestone after M3 merges: M4** — dashboard + live feed + quarantine (workspace-tenancy ADR + auth ADR due; design step first).
+- **Next after M4 merges: M5 (AI layer) — design step first, on the founder's go.** M5's amputable-AI interface should sit behind the seam recorded in architecture-context (delete the layer, product still works).

@@ -20,7 +20,7 @@ Additional constraints:
 ## Milestone completeness & attribution (founder amendment, 2026-07-18, post-M2)
 
 - **A milestone is complete only when code, tests, ADRs, project memory, development log and session notes are ALL updated and ready for review** — documentation lands alongside the code it documents, on the same branch, before the PR opens.
-- **No separate post-merge documentation branches** unless a significant new event occurs that could not reasonably have been documented before the merge (the M2 post-merge closeout was the motivating case; its content folds into the next feature branch).
+- **No post-merge documentation branches for milestone closeouts** (founder simplification, 2026-07-18, post-M3; effective from M4 onward — supersedes the earlier "unless a significant new event" exception). Small administrative updates that only become known after merge (e.g. "merged in PR #X", CI status) either wait for the next milestone's branch or are included only when they provide meaningful value. The M2 and M3 closeout branches predate this rule and were folded/are being folded into the following feature branch.
 - **Commit hygiene:** Conventional Commits only; small, logically separated commits; **no `Co-Authored-By` trailers or AI attribution in commit messages** (standing founder directive; the M2 pre-push history rewrite enforced it retroactively).
 
 ## Review workflow

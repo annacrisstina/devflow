@@ -69,15 +69,25 @@ Before an interview, pick the 3–4 stories most relevant to the company (integr
 - **The narrative:** three candidate projects were scored across 16 hiring-relevant axes; an incident-response platform won on paper and was rejected on **authenticity** ("I've never been on-call — I can't defend that domain under questioning; I _live_ flaky CI daily"). Product judgment = knowing what you can credibly build and defend.
 - **Care note:** only tell this when asked "why this project?" — volunteering it unprompted sounds like process theater.
 
+## 10. Tenancy, auth and the read model (M4)
+
+- **Why it matters:** the milestone where infrastructure meets users — multi-tenancy, session auth, API design and real-time delivery in one coherent story.
+- **Concepts:** tenancy resolved at read time over a tenant-unaware ingest path (unclaimed data as a first-class state, backfill, claiming via a signed state through GitHub's install redirect); app-layer isolation vs RLS argued with a written adoption trigger instead of dogma; database sessions vs JWTs (revocation as a row delete); derived-data honesty — a cached score decays at read time (`e = K·s/(1−s)`, halve per 14 days, re-saturate) computed in SQL so ordering and pagination can't disagree with what's displayed.
+- **Unlocks:** "how would you add teams to a single-user system?" (the members table existed before the feature); "where do you enforce tenant isolation?" (chokepoints + tests, RLS trigger); "push or poll?" (best-effort pub/sub→rooms with REST as truth — and why that makes polling a one-line fallback); "cache invalidation" (don't invalidate — decay at read).
+- **How to tell it:** lead with the claim flow — "GitHub already enforces who may install; a signed state binds that install to a workspace and a session, so tenancy piggybacks on GitHub's own authorization instead of reimplementing it."
+- **The human-in-the-loop structure (ADR-0016):** proposals are a _query_, decisions are rows — grep for writers of `quarantine_records` and you find only human-triggered endpoints. D14 as an architectural property, not a policy.
+
 ## Gap-coverage map (which CV gap each milestone closes)
 
 | CV gap                                     | Closed by                                           |
 | ------------------------------------------ | --------------------------------------------------- |
-| OAuth / modern auth                        | M1 (GitHub App JWT/tokens), M4 (Auth.js login)      |
+| OAuth / modern auth                        | M1 (GitHub App JWT/tokens), M4 (Auth.js login) ✅   |
 | Third-party integrations, GitHub APIs      | M1–M3 (webhooks, REST/GraphQL, Checks API)          |
 | Webhooks                                   | M1                                                  |
 | Event-driven architecture, queues, workers | M2                                                  |
 | Distributed-systems thinking               | M1–M2 (idempotency, ordering, retries)              |
+| Real-time systems (WebSockets, pub/sub)    | M4 (Socket.IO rooms over Redis pub/sub)             |
+| Multi-tenancy / SaaS architecture          | M4 (workspaces, claiming, isolation testing)        |
 | Observability                              | M2+ (structured logs, correlation IDs, metrics), M6 |
 | Production engineering                     | M6 (self-hosting, hardening, release)               |
 | CI/CD                                      | M0 (pipeline) + the product's entire domain         |
