@@ -1,10 +1,10 @@
-# System Overview (as of Milestone 5)
+# System Overview (as of Milestone 6)
 
 > Drawn from code that exists, not intentions. Update alongside the milestone that changes it. Decision history: [../adr/](../adr/).
 
 ## Context
 
-DevFlow is a self-hostable CI reliability platform for GitHub Actions: it ingests workflow runs, parses JUnit artifacts, computes deterministic flakiness verdicts, annotates PRs with advisory check runs, surfaces everything in a workspace-scoped dashboard with a live feed and a human-approved quarantine workflow, and (since M5) offers an **amputable AI layer**: local-embedding semantic search and failure clustering, plus BYO-key LLM root-cause hypotheses (ADR-0017–0019).
+DevFlow is a self-hostable CI reliability platform for GitHub Actions: it ingests workflow runs, parses JUnit artifacts, computes deterministic flakiness verdicts, annotates PRs with advisory check runs, surfaces everything in a workspace-scoped dashboard with a live feed and a human-approved quarantine workflow, and (since M5) offers an **amputable AI layer**: local-embedding semantic search and failure clustering, plus BYO-key LLM root-cause hypotheses (ADR-0017–0019). Since M6 the whole product runs containerized with one command ([self-hosting.md](../self-hosting.md), ADR-0020) and exposes health + Prometheus metrics on both processes (ADR-0021).
 
 ```mermaid
 flowchart LR
@@ -25,8 +25,35 @@ flowchart LR
 - **`apps/worker`** — normalization, artifact fetch/parse, detection, annotation, installation lifecycle, live-event publishing (ADR-0007/0009/0010/0011/0015).
 - **`apps/web`** — Vite React SPA; consumes only `/api/v1` + the socket, typed by **`packages/contract`** (type-only DTOs/events — how web and api share a wire contract without importing each other).
 - **`packages/ai`** — the amputable AI layer (ADR-0017): local MiniLM embedder, failure-text hashing, deterministic clustering, plain-fetch LLM provider. Its permitted call sites are enumerated in the ADR; deleting the package + seams leaves a fully functional product.
-- **`packages/db`** — Drizzle schema + forward-only migrations (0000–0003); **`packages/queue`** — api↔worker contract (jobs + the live-events channel name).
+- **`packages/db`** — Drizzle schema + forward-only migrations (0000–0004); **`packages/queue`** — api↔worker contract (jobs + the live-events channel name).
 - Dependency direction: apps → packages, never the reverse, never app → app.
+
+## Deployment (ADR-0020)
+
+One `compose.yaml`, two modes: the default starts only dev infrastructure (Postgres with pgvector, Redis with AOF) and the apps run natively; `docker compose --profile full up` runs the product.
+
+```mermaid
+flowchart LR
+    subgraph full["compose --profile full"]
+        M[migrate<br/>one-shot, api image] -->|service_completed_successfully| A[api<br/>:3001 published on loopback]
+        M -->|gates| W[worker<br/>:3002 internal only]
+        PG[(postgres<br/>pgvector)] --- M
+        R[(redis<br/>AOF)] --- A
+        R --- W
+    end
+    U[Browser / GitHub] -->|TLS proxy in front<br/>DEVFLOW_TRUST_PROXY=on| A
+```
+
+- Multi-stage `node:22-slim` images; pruned `pnpm deploy --legacy` runtime layouts running as `USER node`.
+- The api image carries the built dashboard (served same-origin behind `DEVFLOW_WEB_DIST`), the committed migrations, and the embedding model; the worker image carries the model too (`warm-model.js` bakes it at build — air-gapped deploys work with zero first-boot downloads).
+- Migrations run once per rollout in the `migrate` service (drizzle's programmatic migrator over committed SQL); a failed migration halts the rollout with the apps unstarted.
+- Healthchecks poll `/healthz` via `node -e fetch(...)` — real dependency checks (ADR-0021), so `docker compose ps` tells the truth and `depends_on` ordering flows from it.
+
+## Observability (ADR-0021)
+
+- `GET /healthz` on both processes runs real dependency checks (`SELECT 1` + Redis `PING`); the worker's is a plain `node:http` server on its own port.
+- `GET /metrics` (Prometheus text, `prom-client`) on both: request-duration and webhook-outcome metrics on the api; job results/durations, queue-state gauges, embeddings, check-run writes and live events on the worker. The alertable number is `devflow_queue_jobs{state="failed"}` — the DLQ.
+- Exposure posture: `/metrics` is unauthenticated; the worker's port never leaves the compose network and the api's sits behind the reverse proxy (allow only your monitoring network). Metric names are API surface — renames are breaking changes.
 
 ## Tenancy (ADR-0012)
 
