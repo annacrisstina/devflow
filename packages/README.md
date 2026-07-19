@@ -7,6 +7,7 @@ Current:
 - [`@devflow/db`](db/README.md) — Drizzle schema, migrations, connection factory.
 - [`@devflow/queue`](queue/README.md) — the api↔worker Redis contract: job payloads, retry policy, connection factory, the live-events channel.
 - [`@devflow/contract`](contract/README.md) — type-only wire contract between api and web (`/api/v1` DTOs, live-event envelopes).
+- [`@devflow/ai`](ai/README.md) — the amputable AI layer (ADR-0017): local embedder, failure-text hashing, clustering, LLM provider seam.
 
 Planned (added when first needed, not scaffolded in advance):
 
