@@ -41,6 +41,9 @@ importers:
       '@auth/drizzle-adapter':
         specifier: ^1.11.2
         version: 1.11.2
+      '@devflow/contract':
+        specifier: workspace:^
+        version: link:../../packages/contract
       '@devflow/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -121,6 +124,12 @@ importers:
       yazl:
         specifier: ^3.3.1
         version: 3.3.1
+
+  packages/contract:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
 
   packages/db:
     dependencies:

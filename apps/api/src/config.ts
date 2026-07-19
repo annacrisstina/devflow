@@ -2,6 +2,8 @@ import { fileURLToPath } from 'node:url';
 
 import { envSchema } from 'env-schema';
 
+import type { FlakeReadConfig } from './flake/effective-score.js';
+
 /**
  * All configuration enters through here, validated at boot: a misconfigured
  * process must die immediately with a precise error, not limp along and fail
@@ -21,6 +23,11 @@ export type ApiConfig = {
   /** The GitHub App's own OAuth credentials (user login, ADR-0013). */
   githubClientId: string;
   githubClientSecret: string;
+  /**
+   * Read-model twin of the worker's detection knobs (ADR-0014): decay-at-read
+   * uses the same env variables, so tuning detection tunes reads with it.
+   */
+  flake: FlakeReadConfig;
 };
 
 type RawEnv = {
@@ -34,6 +41,10 @@ type RawEnv = {
   DEVFLOW_AUTH_SECRET: string;
   DEVFLOW_GITHUB_CLIENT_ID: string;
   DEVFLOW_GITHUB_CLIENT_SECRET: string;
+  DEVFLOW_FLAKE_HALF_LIFE_DAYS: number;
+  DEVFLOW_FLAKE_SATURATION_K: number;
+  DEVFLOW_FLAKE_FLAKY_THRESHOLD: number;
+  DEVFLOW_FLAKE_SUSPECT_THRESHOLD: number;
 };
 
 const schema = {
@@ -71,6 +82,22 @@ const schema = {
       default: 'postgresql://devflow:devflow_local@127.0.0.1:5432/devflow',
     },
     DEVFLOW_REDIS_URL: { type: 'string', default: 'redis://127.0.0.1:6379' },
+    // Mirror of the worker's detection knobs (ADR-0010 reference defaults);
+    // exclusiveMinimum guards the divisions in the decay arithmetic.
+    DEVFLOW_FLAKE_HALF_LIFE_DAYS: { type: 'number', default: 14, exclusiveMinimum: 0 },
+    DEVFLOW_FLAKE_SATURATION_K: { type: 'number', default: 2.0, exclusiveMinimum: 0 },
+    DEVFLOW_FLAKE_FLAKY_THRESHOLD: {
+      type: 'number',
+      default: 0.5,
+      exclusiveMinimum: 0,
+      maximum: 1,
+    },
+    DEVFLOW_FLAKE_SUSPECT_THRESHOLD: {
+      type: 'number',
+      default: 0.25,
+      exclusiveMinimum: 0,
+      maximum: 1,
+    },
   },
 } as const;
 
@@ -82,6 +109,14 @@ export function loadConfig(): ApiConfig {
     // must carry structured logs only, not dotenv's banner.
     dotenv: { path: fileURLToPath(new URL('../../../.env', import.meta.url)), quiet: true },
   });
+  // Cross-field constraint JSON Schema can't express (same check as the
+  // worker): the verdict bands must not invert.
+  if (env.DEVFLOW_FLAKE_SUSPECT_THRESHOLD >= env.DEVFLOW_FLAKE_FLAKY_THRESHOLD) {
+    throw new Error(
+      'DEVFLOW_FLAKE_SUSPECT_THRESHOLD must be strictly below DEVFLOW_FLAKE_FLAKY_THRESHOLD',
+    );
+  }
+
   return {
     host: env.DEVFLOW_API_HOST,
     port: env.DEVFLOW_API_PORT,
@@ -93,5 +128,11 @@ export function loadConfig(): ApiConfig {
     authSecret: env.DEVFLOW_AUTH_SECRET,
     githubClientId: env.DEVFLOW_GITHUB_CLIENT_ID,
     githubClientSecret: env.DEVFLOW_GITHUB_CLIENT_SECRET,
+    flake: {
+      halfLifeDays: env.DEVFLOW_FLAKE_HALF_LIFE_DAYS,
+      saturationK: env.DEVFLOW_FLAKE_SATURATION_K,
+      flakyThreshold: env.DEVFLOW_FLAKE_FLAKY_THRESHOLD,
+      suspectThreshold: env.DEVFLOW_FLAKE_SUSPECT_THRESHOLD,
+    },
   };
 }

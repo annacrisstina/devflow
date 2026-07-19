@@ -1,3 +1,4 @@
+import type { MeResponse, WorkspaceSummary } from '@devflow/contract/api';
 import { workspaceMembers, workspaces } from '@devflow/db/schema/tenancy';
 import { eq } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
@@ -22,13 +23,14 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
       .where(eq(workspaceMembers.userId, user.id));
 
-    return {
+    const body: MeResponse = {
       user: { id: user.id, name: user.name, email: user.email, image: user.image },
       workspaces: memberships.map((m) => ({
         id: m.id.toString(),
         name: m.name,
-        role: m.role,
+        role: m.role as WorkspaceSummary['role'],
       })),
     };
+    return body;
   });
 };

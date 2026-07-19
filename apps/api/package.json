@@ -14,6 +14,7 @@
   "dependencies": {
     "@auth/core": "^0.41.2",
     "@auth/drizzle-adapter": "^1.11.2",
+    "@devflow/contract": "workspace:^",
     "@devflow/db": "workspace:*",
     "@devflow/queue": "workspace:*",
     "drizzle-orm": "^0.44.2",

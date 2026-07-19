@@ -20,6 +20,8 @@ export function testConfig(overrides: Partial<ApiConfig> = {}): ApiConfig {
     authSecret: 'test-auth-secret-test-auth-secret!!',
     githubClientId: 'test-client-id',
     githubClientSecret: 'test-client-secret',
+    // ADR-0010 reference values, same as production defaults.
+    flake: { halfLifeDays: 14, saturationK: 2.0, flakyThreshold: 0.5, suspectThreshold: 0.25 },
     ...overrides,
   };
 }

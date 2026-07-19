@@ -6,7 +6,10 @@ import { fastify, type FastifyInstance } from 'fastify';
 import { authJsPlugin } from './auth/authjs-plugin.js';
 import type { ApiConfig } from './config.js';
 import { healthRoutes } from './routes/health.js';
+import { flakyTestRoutes } from './routes/v1/flaky-tests.js';
 import { meRoutes } from './routes/v1/me.js';
+import { runRoutes } from './routes/v1/runs.js';
+import { workspaceRoutes } from './routes/v1/workspaces.js';
 import { webhookRoutes } from './routes/webhooks.js';
 
 declare module 'fastify' {
@@ -43,6 +46,9 @@ export async function buildApp(config: ApiConfig): Promise<FastifyInstance> {
   await app.register(webhookRoutes, { webhookSecret: config.webhookSecret });
   await app.register(authJsPlugin, { config });
   await app.register(meRoutes);
+  await app.register(workspaceRoutes);
+  await app.register(flakyTestRoutes, { flake: config.flake });
+  await app.register(runRoutes);
 
   return app;
 }

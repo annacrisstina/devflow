@@ -1,0 +1,24 @@
+{
+  "name": "@devflow/contract",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Type-only contract between the API and its consumers: /api/v1 DTOs and live-event envelopes. No runtime code.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./api": {
+      "types": "./dist/api.d.ts",
+      "default": "./dist/api.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
