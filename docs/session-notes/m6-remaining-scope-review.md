@@ -1,6 +1,6 @@
 # M6 Remaining-Scope Architecture Review
 
-> Produced 2026-07-19 from repository state alone, after the original M6 review was lost with the Docker-crash session (see session-history). Covers **only unimplemented scope**. Already implemented and approved — not revisited here: observability (ADR-0021), the e2e harness promotion, containerized self-hosting (ADR-0020 + `docs/self-hosting.md`). Status: **draft — awaiting founder approval; no implementation until then.**
+> Produced 2026-07-19 from repository state alone, after the original M6 review was lost with the Docker-crash session (see session-history). Covers **only unimplemented scope**. Already implemented and approved — not revisited here: observability (ADR-0021), the e2e harness promotion, containerized self-hosting (ADR-0020 + `docs/self-hosting.md`). Status: **approved by the founder 2026-07-19** — D-M6-1 through D-M6-6 as recommended; D-M6-7 resolved as _keep the current merge policy, D11 unchanged during M6_. Decision record: [engineering-decisions.md](../project-memory/engineering-decisions.md#m6-remaining-scope-decisions-founder-ratified-2026-07-19).
 
 ## Goal restated
 

@@ -127,15 +127,19 @@ export function createStubGitHub() {
   };
 }
 
-/** Signs and POSTs a workflow_run.completed delivery to a local API. */
+/**
+ * Signs and POSTs a workflow_run.completed delivery to a local API.
+ * `guid` (optional) makes deliveries deterministic — the seed script uses it
+ * so re-runs converge through the duplicate-GUID repair path (ADR-0005).
+ */
 export function createDeliverer({ apiPort, webhookSecret }) {
-  return async function deliver(payload) {
+  return async function deliver(payload, { guid } = {}) {
     const body = JSON.stringify(payload);
     const response = await fetch(`http://127.0.0.1:${apiPort}/webhooks/github`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-github-delivery': randomUUID(),
+        'x-github-delivery': guid ?? randomUUID(),
         'x-github-event': 'workflow_run',
         'x-hub-signature-256': `sha256=${createHmac('sha256', webhookSecret).update(body).digest('hex')}`,
       },
@@ -156,6 +160,9 @@ export function workflowRunPayload({
   conclusion,
   repo,
   installationId,
+  // Optional ISO timestamp: run_started_at drives detection chronology and
+  // decay, so the seed script fabricates histories by dating runs in the past.
+  startedAt,
 }) {
   return {
     action: 'completed',
@@ -169,7 +176,7 @@ export function workflowRunPayload({
       event: 'pull_request',
       status: 'completed',
       conclusion,
-      run_started_at: new Date().toISOString(),
+      run_started_at: startedAt ?? new Date().toISOString(),
     },
     repository: {
       id: repo.githubId,

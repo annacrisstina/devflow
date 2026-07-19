@@ -1,0 +1,13 @@
+{
+  "name": "devflow-demo-flaky",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deliberately flaky test suite for demoing DevFlow's detection. Not part of the DevFlow workspace — copy this directory into its own repository.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}
