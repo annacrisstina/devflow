@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { useFlakyTestDetail } from '../api/hooks.js';
 import { displayName, evidenceText, verdictBadge } from './flaky-tests-page.js';
+import { HypothesisPanel } from './hypothesis-panel.js';
 
 function statusColor(status: string): string {
   if (status === 'passed') return 'text-emerald-500';
@@ -40,6 +41,8 @@ export function FlakyTestDetailPage() {
         <span className="tabular-nums">Stored: {test.storedScore.toFixed(3)}</span>
         <span className="text-slate-400">{evidenceText(test)}</span>
       </div>
+
+      <HypothesisPanel workspaceId={workspaceId} scoreId={scoreId} />
 
       <section>
         <h3 className="text-lg font-medium">Outcome history</h3>

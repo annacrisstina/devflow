@@ -5,6 +5,7 @@ import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 
 import { FlakyTestDetailPage } from './pages/flaky-test-detail-page.js';
 import { FlakyTestsPage } from './pages/flaky-tests-page.js';
+import { InsightsPage } from './pages/insights-page.js';
 import { QuarantinePage } from './pages/quarantine-page.js';
 import { RootLayout } from './pages/root-layout.js';
 import { RunsPage } from './pages/runs-page.js';
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
       { path: 'workspaces/:workspaceId/flaky-tests', element: <FlakyTestsPage /> },
       { path: 'workspaces/:workspaceId/flaky-tests/:scoreId', element: <FlakyTestDetailPage /> },
       { path: 'workspaces/:workspaceId/runs', element: <RunsPage /> },
+      { path: 'workspaces/:workspaceId/insights', element: <InsightsPage /> },
       { path: 'workspaces/:workspaceId/quarantine', element: <QuarantinePage /> },
     ],
   },

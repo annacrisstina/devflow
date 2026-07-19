@@ -87,6 +87,11 @@ export function RootLayout() {
           <NavLink to={`/workspaces/${workspaceId}/quarantine`} className={linkClass}>
             Quarantine
           </NavLink>
+          {me.data.features.aiSearch ? (
+            <NavLink to={`/workspaces/${workspaceId}/insights`} className={linkClass}>
+              Insights
+            </NavLink>
+          ) : null}
         </nav>
         <div className="ml-auto flex items-center gap-3 text-sm text-slate-400">
           <span>{me.data.user.name ?? me.data.user.email ?? 'Signed in'}</span>
