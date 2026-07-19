@@ -23,6 +23,8 @@ export type ApiConfig = {
   /** The GitHub App's own OAuth credentials (user login, ADR-0013). */
   githubClientId: string;
   githubClientSecret: string;
+  /** The App's public slug — builds the install link (ADR-0012). */
+  githubAppSlug: string;
   /**
    * Read-model twin of the worker's detection knobs (ADR-0014): decay-at-read
    * uses the same env variables, so tuning detection tunes reads with it.
@@ -41,6 +43,7 @@ type RawEnv = {
   DEVFLOW_AUTH_SECRET: string;
   DEVFLOW_GITHUB_CLIENT_ID: string;
   DEVFLOW_GITHUB_CLIENT_SECRET: string;
+  DEVFLOW_GITHUB_APP_SLUG: string;
   DEVFLOW_FLAKE_HALF_LIFE_DAYS: number;
   DEVFLOW_FLAKE_SATURATION_K: number;
   DEVFLOW_FLAKE_FLAKY_THRESHOLD: number;
@@ -56,6 +59,7 @@ const schema = {
     'DEVFLOW_AUTH_SECRET',
     'DEVFLOW_GITHUB_CLIENT_ID',
     'DEVFLOW_GITHUB_CLIENT_SECRET',
+    'DEVFLOW_GITHUB_APP_SLUG',
   ],
   properties: {
     DEVFLOW_GITHUB_WEBHOOK_SECRET: { type: 'string', minLength: 1 },
@@ -64,6 +68,7 @@ const schema = {
     DEVFLOW_AUTH_SECRET: { type: 'string', minLength: 32 },
     DEVFLOW_GITHUB_CLIENT_ID: { type: 'string', minLength: 1 },
     DEVFLOW_GITHUB_CLIENT_SECRET: { type: 'string', minLength: 1 },
+    DEVFLOW_GITHUB_APP_SLUG: { type: 'string', minLength: 1 },
     // Loopback default matches the dev API address; a deployment behind a
     // domain must set this or OAuth callbacks will point at localhost.
     DEVFLOW_APP_URL: { type: 'string', default: 'http://127.0.0.1:3001' },
@@ -128,6 +133,7 @@ export function loadConfig(): ApiConfig {
     authSecret: env.DEVFLOW_AUTH_SECRET,
     githubClientId: env.DEVFLOW_GITHUB_CLIENT_ID,
     githubClientSecret: env.DEVFLOW_GITHUB_CLIENT_SECRET,
+    githubAppSlug: env.DEVFLOW_GITHUB_APP_SLUG,
     flake: {
       halfLifeDays: env.DEVFLOW_FLAKE_HALF_LIFE_DAYS,
       saturationK: env.DEVFLOW_FLAKE_SATURATION_K,

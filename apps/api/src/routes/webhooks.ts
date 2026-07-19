@@ -1,5 +1,5 @@
 import { webhookEvents } from '@devflow/db/schema/webhook-events';
-import { enqueueProcessWorkflowRun } from '@devflow/queue/ingest';
+import { enqueueProcessInstallationEvent, enqueueProcessWorkflowRun } from '@devflow/queue/ingest';
 import { eq } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 
@@ -100,6 +100,16 @@ export const webhookRoutes: FastifyPluginAsync<WebhookRoutesOptions> = async (ap
         deliveryId,
       });
       log.info({ eventId: eventId.toString() }, 'processing job enqueued');
+    }
+
+    // Installation lifecycle (M4, ADR-0012): every action is enqueued — the
+    // worker decides what each one means for the installations table.
+    if (eventId !== undefined && eventType === 'installation') {
+      await enqueueProcessInstallationEvent(app.ingestQueue, {
+        webhookEventId: eventId.toString(),
+        deliveryId,
+      });
+      log.info({ eventId: eventId.toString() }, 'installation job enqueued');
     }
 
     if (inserted.length === 0) {

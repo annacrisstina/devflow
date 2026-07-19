@@ -46,6 +46,24 @@ DEVFLOW_GITHUB_APP_PRIVATE_KEY_BASE64=$(base64 -w0 ~/Downloads/devflow-dev.*.pri
 
 (M1 deliberately skipped this — no key existed while nothing called the GitHub API.)
 
+## 3b. M4 additions — user login and workspace claiming
+
+M4's dashboard needs three more things on the same App settings page (**if your App predates M4**, add them now; no new repository permissions are involved):
+
+1. **User OAuth (login):** under _Identifying and authorizing users_ set **Callback URL** to `http://127.0.0.1:3001/api/auth/callback/github` (or `<DEVFLOW_APP_URL>/api/auth/callback/github` for a deployment) and enable **Request user authorization (OAuth) during installation**. Then generate a **client secret** under _Client secrets_. The App's own OAuth credentials serve user login (ADR-0013) — there is no separate OAuth App.
+2. **Setup URL (workspace claiming, ADR-0012):** under _Post installation_ set **Setup URL** to `http://127.0.0.1:3001/api/github/setup` and tick **Redirect on update**. The dashboard's "Connect GitHub" button carries a signed `state` through this redirect; without the Setup URL, installations complete on GitHub but are never claimed by a workspace.
+3. **Subscribe to events → Installation** (alongside Workflow run): keeps `installations` rows in sync (account name, uninstalls). Deliveries for it appear like any other webhook.
+
+```sh
+# .env additions (see .env.example)
+DEVFLOW_AUTH_SECRET=$(openssl rand -hex 32)
+DEVFLOW_GITHUB_CLIENT_ID=<Client ID from the App settings page>
+DEVFLOW_GITHUB_CLIENT_SECRET=<generated client secret>
+DEVFLOW_GITHUB_APP_SLUG=<the app's URL slug, e.g. devflow-dev-username>
+```
+
+Note for dev: the OAuth callback and Setup URL point at the **API port directly** (not the smee tunnel — those are browser redirects, not webhooks; they happen on your machine and need no tunnel).
+
 ## 4. Install the app
 
 App page → **Install App** → your account → select the repository (or a scratch repo with a workflow, for testing). GitHub immediately sends `installation` events — first proof the pipe works.

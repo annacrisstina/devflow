@@ -7,6 +7,7 @@ import { authJsPlugin } from './auth/authjs-plugin.js';
 import type { ApiConfig } from './config.js';
 import { healthRoutes } from './routes/health.js';
 import { flakyTestRoutes } from './routes/v1/flaky-tests.js';
+import { installationRoutes } from './routes/v1/installations.js';
 import { meRoutes } from './routes/v1/me.js';
 import { runRoutes } from './routes/v1/runs.js';
 import { workspaceRoutes } from './routes/v1/workspaces.js';
@@ -49,6 +50,7 @@ export async function buildApp(config: ApiConfig): Promise<FastifyInstance> {
   await app.register(workspaceRoutes);
   await app.register(flakyTestRoutes, { flake: config.flake });
   await app.register(runRoutes);
+  await app.register(installationRoutes, { config });
 
   return app;
 }

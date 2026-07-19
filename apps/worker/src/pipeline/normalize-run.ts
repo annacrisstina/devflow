@@ -1,5 +1,6 @@
 import type { Db } from '@devflow/db/client';
 import { repositories, workflowRuns } from '@devflow/db/schema/runs';
+import { installations } from '@devflow/db/schema/tenancy';
 
 import { PermanentJobError } from '../errors.js';
 import type { RawEvent } from './load-event.js';
@@ -40,6 +41,15 @@ export async function normalizeRun(db: Db, event: RawEvent): Promise<NormalizedR
   const runAttempt = asSafeInteger(workflowRun.run_attempt, 'workflow_run.run_attempt');
   const headSha = asString(workflowRun.head_sha, 'workflow_run.head_sha');
   const defaultBranch = optionalString(repository.default_branch);
+
+  // Tenancy joinability guarantee (ADR-0012): every installation the ingest
+  // path ever sees has an installations row, even if no `installation`
+  // webhook was delivered (pre-M4 Apps, missed events). Claiming fills
+  // workspace_id later; account fields arrive with installation events.
+  await db
+    .insert(installations)
+    .values({ githubInstallationId: BigInt(installationId) })
+    .onConflictDoNothing({ target: installations.githubInstallationId });
 
   const repoRows = await db
     .insert(repositories)
