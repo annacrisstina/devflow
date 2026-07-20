@@ -58,7 +58,7 @@
     "@types/node": "^22",
     "@types/pg": "^8.15.4",
     "drizzle-kit": "^0.31.4",
-    "typescript": "^5.7.2",
+    "typescript": "^6.0.3",
     "vitest": "^3.2.4"
   }
 }
