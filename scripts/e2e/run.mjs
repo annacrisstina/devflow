@@ -3,13 +3,15 @@
 // detection arithmetic -> annotation -> quarantine -> embeddings -> search ->
 // clusters -> hypothesis -> live feed -> redelivery convergence.
 //
-// Requirements: dev infra up (`docker compose up -d`), ports 3197-3199 free.
+// Requirements: dev infra up (`docker compose up -d`), `pnpm install` and
+// `pnpm build` done, ports 3197-3199 free.
 // Side effects (cleaned up on success): throwaway db `devflow_e2e`, Redis
 // logical db 5. See scripts/e2e/README.md.
 import { randomUUID } from 'node:crypto';
 import http from 'node:http';
 
 import {
+  assertBuilt,
   assertPortsFree,
   createDeliverer,
   createStubGitHub,
@@ -100,6 +102,7 @@ async function deliver({ sha, failing, message, runId }) {
 }
 
 async function main() {
+  assertBuilt();
   await assertPortsFree([API_PORT, STUB_PORT, LLM_PORT]);
   const dbUrl = await freshDatabase(ADMIN_DB_URL, 'devflow_e2e');
 

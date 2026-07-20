@@ -1,6 +1,6 @@
 # Demo tooling
 
-- **`pnpm demo:seed`** (`seed.mjs`) — replays a curated synthetic history through the real pipeline into your **local** dev database: a flaky test with same-commit divergences (~0.53), a suspected one (~0.46), an always-failing test that correctly scores zero, four distinct failure texts for search/clusters, and a quarantine proposal left for you to approve. Idempotent (deterministic delivery GUIDs); refuses non-local databases. Requires dev infra (`docker compose up -d`) and `pnpm install`; ports 3191–3193.
+- **`pnpm demo:seed`** (`seed.mjs`) — replays a curated synthetic history through the real pipeline into your **local** dev database: a flaky test with same-commit divergences (~0.53), a suspected one (~0.46), an always-failing test that correctly scores zero, four distinct failure texts for search/clusters, and a quarantine proposal left for you to approve. Idempotent (deterministic delivery GUIDs); refuses non-local databases. Requires dev infra (`docker compose up -d`) and `pnpm install && pnpm build` (the spawned apps import the packages' compiled output); ports 3191–3193.
 - **`flaky-repo/`** — a template repository with deliberately flaky tests, for demoing against real GitHub Actions runs. See its [README](flaky-repo/README.md).
 
 ## Demo video storyboard (v0.1.0)

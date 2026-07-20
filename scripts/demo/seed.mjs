@@ -12,11 +12,13 @@
 //                      + healthy tests, 4 distinct failure texts for search/clusters
 //   search-service     3 healthy mainline runs (a second repo for the dashboard)
 //
-// Requirements: dev infra up (`docker compose up -d`), `pnpm install` done,
+// Requirements: dev infra up (`docker compose up -d`), `pnpm install` and
+// `pnpm build` done (the spawned apps import the packages' compiled dist),
 // ports 3191-3193 free. Side effects: rows in the dev database (the point);
 // Redis logical db 4 flushed before and after. Re-runs converge: deliveries
 // use deterministic GUIDs, so replays follow the ADR-0005 repair path.
 import {
+  assertBuilt,
   assertPortsFree,
   createDeliverer,
   createStubGitHub,
@@ -189,6 +191,7 @@ async function deliverRun(run) {
 }
 
 async function main() {
+  assertBuilt();
   await assertPortsFree([WORKER_PORT, STUB_PORT, API_PORT]);
   await stub.listen(STUB_PORT);
 

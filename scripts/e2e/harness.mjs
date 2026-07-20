@@ -4,6 +4,7 @@
 // Used by scripts/e2e/run.mjs and scripts/demo/seed.mjs.
 import { createHmac, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
+import { existsSync, readdirSync } from 'node:fs';
 import http from 'node:http';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -238,6 +239,18 @@ export async function assertPortsFree(ports) {
     if (taken) {
       throw new Error(`port ${port} already has a listener — kill leftover processes first`);
     }
+  }
+}
+
+/** Fails loudly before apps spawn from source: their workspace imports
+ * resolve through package.json exports to compiled dist/, so an install
+ * without a build dies much later with an opaque module-not-found. */
+export function assertBuilt() {
+  const missing = readdirSync(`${ROOT}/packages`, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !existsSync(`${ROOT}/packages/${e.name}/dist`))
+    .map((e) => e.name);
+  if (missing.length > 0) {
+    throw new Error(`packages not built (${missing.join(', ')}) — run \`pnpm build\` first`);
   }
 }
 
