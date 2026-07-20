@@ -360,4 +360,55 @@ Where NOT to use an LLM (clustering as geometry; detection untouched — the §5
 
 ---
 
-_(Next entry: Milestone 6, appended when completed.)_
+## Milestone 6 — Production hardening + v0.1.0 release readiness
+
+- **Date:** 2026-07-20
+- **Milestone:** 6
+- **Goal:** close the distance between "the product works on the dev machine" and the roadmap's release gate — "a stranger can run this and see it work": observability, one-command containerized self-hosting, demo/seed tooling, dogfooding, final docs, and the v0.1.0 release artifacts.
+
+### Completed work
+
+- **Observability (ADR-0021):** `/healthz` + Prometheus `/metrics` on both processes (the worker grew its own health server); the alertable number is the dead-letter gauge `devflow_queue_jobs{state="failed"}`; metric names declared API surface.
+- **E2e harness promoted into the repo** (`pnpm e2e`): the scripted live end-to-end (claim → ADR-0010 arithmetic → annotation → quarantine → embeddings → search → clusters → hypothesis → live feed → redelivery convergence) became a first-class verification tool with port preflights and stubbed GitHub/LLM APIs.
+- **Containerized self-hosting (ADR-0020):** one compose file, two modes — dev infra only vs `--profile full` (one-shot `migrate` gating api/worker, dashboard + embedding model baked into the images, loopback publishing, throwaway-cred-friendly boot validation); `docs/self-hosting.md` is the stranger-facing guide.
+- **R1 — demo seeder + flaky-repo template (D-M6-2/3):** `pnpm demo:seed` replays a curated 12-run history through the real pipeline (signed deliveries, deterministic GUIDs, locality guard) — flaky ~0.529 / suspected ~0.464 / always-red scoring zero, four distinct failure texts for search/clusters; the template repo ships for the founder's live `devflow-demo-flaky`.
+- **R2 — dogfooding:** all five vitest packages emit JUnit XML; CI uploads it with SHA-pinned `upload-artifact` under `if: always()` — DevFlow's own parser verified against vitest's dialect directly.
+- **R3 — docs pass:** README (self-hosting, how-it-works), architecture overview (deployment + observability views, refreshed mermaid).
+- **R4 — release artifacts (D-M6-5):** CHANGELOG 0.1.0 with honest known limitations, version 0.1.0, the clause-by-clause release checklist, the demo-video storyboard. Backfill formally cut to post-MVP (D-M6-1); Dependabot majors deferred until after the tag (D-M6-6).
+- **Gate-day fix (`4401817`):** the stranger test caught that `pnpm demo:seed`/`pnpm e2e` die with an opaque module-not-found on a clone that ran `pnpm install` but not `pnpm build` — the spawned apps' workspace imports resolve to each package's compiled `dist/`. `assertBuilt()` now preflights every package and names the fix; the demo/e2e docs and checklist state the build prerequisite.
+
+### Verification (all run on 2026-07-20, after healing Docker)
+
+- **`pnpm verify` green:** 203 tests (queue 3, db 16, ai 21, worker 69, api 94) — closing the one recorded exception (R4's commit had run only the four Docker-free legs).
+- **`pnpm e2e`: 21/21**, re-run after the harness fix.
+- **The stranger test — passed, and it earned its keep:** fresh clone in a scratch directory, `docs/self-hosting.md` followed literally with throwaway credentials → full profile healthy on first boot (migrate exit 0, SPA served, healthz ok) → `pnpm install && pnpm build && pnpm demo:seed` → 6/6 checks, database populated exactly per the storyboard (12 runs, 51 results, 2 repos, 4 embeddings, correct verdicts). First attempt surfaced the missing-build defect above; fixed, negative-tested (clear fail-fast message), re-run clean.
+
+### ADRs created
+
+- ADR-0020: Containerized self-hosting (two compose modes, migrate-gated startup, baked model).
+- ADR-0021: Observability — health endpoints and Prometheus metrics as API surface.
+
+### Deviations (recorded)
+
+- The stranger clone came from the local repository, not GitHub — the branch is unpushed (push/PR are founder actions). Same-content verification; the literal-URL clone happens implicitly at the founder's real-GitHub pass.
+- The dashboard click-through on seeded data remains a founder step: login requires the real GitHub App. The seeder's unclaimed-data path (seed → log in once → re-seed attaches) is the verified stranger behavior.
+- This milestone absorbed two Docker Desktop failures (2026-07-19) and a recovery session (2026-07-20); root cause was found to be **C-drive exhaustion starving the WSL2 VHDX** — the corruption was a symptom. Details in session-history; the ops lesson is recorded there rather than in product docs.
+
+### Lessons learned
+
+1. **The stranger test finds what the dev tree structurally cannot:** every developer machine has `dist/` built, so the packages' exports-to-dist resolution had never once been exercised from a bare install. "Works where it was written" is not "works from install."
+2. **Preflights should name the fix:** `assertBuilt()` joining `assertPortsFree()` turns a cryptic healthz timeout plus a stack dump into a one-line instruction. Guards that only detect are half a guard.
+3. **Diagnose the substrate before the artifact:** two days were spent on image-store corruption and service forensics; the actual disease was a full host disk. When storage misbehaves, check capacity before integrity.
+
+### Technical debt introduced (accepted, tracked)
+
+Unchanged from M5 plus the CHANGELOG "Known limitations" list (single-member workspaces; JUnit-only; GitHub-only; reactive rate limits; no backfill; unauthenticated `/metrics` posture; no automated UI tests). Machine-only, not repo debt: the pgvector `pg17` local retag and the user-scoped compose v5.3.1 from the Docker recoveries.
+
+### Status & next
+
+- **Milestone 6: complete — the full pre-tag gate is green.** Branch `feat/self-host-release`; push, PR (suggested title: `feat(repo): production hardening and v0.1.0 release preparation`), and merge are founder actions.
+- After merge, per the release checklist: tag `v0.1.0`, GitHub Release from the CHANGELOG, the real-GitHub pass (App §3b, dogfood install, `devflow-demo-flaky` from the template), demo video, then the Dependabot majors queue (D-M6-6).
+
+---
+
+_(Next entry: post-v0.1.0 work, appended when a milestone completes.)_

@@ -16,6 +16,7 @@ export function testConfig(overrides: Partial<ApiConfig> = {}): ApiConfig {
     databaseUrl: DATABASE_URL,
     redisUrl: process.env.DEVFLOW_REDIS_URL ?? 'redis://127.0.0.1:6379',
     webhookSecret: 'test-webhook-secret',
+    trustProxy: false,
     appUrl: 'http://127.0.0.1:3001',
     authSecret: 'test-auth-secret-test-auth-secret!!',
     githubClientId: 'test-client-id',

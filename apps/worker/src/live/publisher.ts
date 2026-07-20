@@ -6,6 +6,7 @@ import { LIVE_EVENTS_CHANNEL } from '@devflow/queue/live';
 import { eq } from 'drizzle-orm';
 import type { Logger } from 'pino';
 
+import { liveEventsPublished } from '../metrics.js';
 import type { NormalizedRun } from '../pipeline/normalize-run.js';
 
 export type LivePublisher = {
@@ -49,6 +50,7 @@ export function createLivePublisher(db: Db, redis: RedisConnection): LivePublish
         ...extra,
       };
       await redis.publish(LIVE_EVENTS_CHANNEL, JSON.stringify(event));
+      liveEventsPublished.inc({ type });
     } catch (error) {
       log.warn({ err: error, type }, 'live event publish failed (ignored)');
     }

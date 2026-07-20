@@ -5,18 +5,28 @@
 [![CI](https://github.com/annacrisstina/devflow/actions/workflows/ci.yml/badge.svg)](https://github.com/annacrisstina/devflow/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Status: early development.** The product works end to end: webhook ingestion → artifact parsing → deterministic flakiness scoring → advisory PR check runs, plus a workspace dashboard with GitHub login, live run feed, human-approved quarantine, and an assistive (and fully removable) AI layer — local semantic search over failure history, failure clustering, opt-in LLM root-cause hypotheses (milestones 0–5). Next up: self-hosting hardening and v0.1.0 — watch the repo if you want to follow along.
+**Status: v0.1.0 in preparation.** The MVP is feature-complete and self-hostable with one command: webhook ingestion → artifact parsing → deterministic flakiness scoring → advisory PR check runs, plus a workspace dashboard with GitHub login, live run feed, human-approved quarantine, and an assistive (and fully removable) AI layer — local semantic search over failure history, failure clustering, opt-in LLM root-cause hypotheses. DevFlow dogfoods itself: this repository's own CI uploads its JUnit results for a DevFlow deployment to ingest.
 
 ## The problem
 
 A flaky test — one that passes and fails nondeterministically without code changes — is the most expensive kind of noise in a CI pipeline. It blocks merges, forces re-runs, and worst of all it trains engineers to ignore a red build. Existing solutions (BuildPulse, Trunk, Datadog CI Visibility) are closed SaaS. DevFlow is the open-source, self-hostable alternative: it ingests your GitHub Actions results, identifies which failures are flakiness rather than regressions, and tells you on the PR itself.
 
-## How it will work
+## How it works
 
 1. Install the DevFlow GitHub App on your repositories.
 2. Every workflow run is ingested via webhooks; test reports (JUnit XML) are parsed in background workers.
 3. A statistical engine scores each test's flakiness from its history (same commit, different outcomes; pass/fail transitions without related changes).
 4. Known-flaky failures are annotated directly on your PR checks; quarantine is proposed — never applied automatically.
+5. The dashboard shows ranked flaky tests with their evidence, a live run feed, semantic search over failure history, and the quarantine workflow.
+
+## Self-hosting
+
+The whole product runs in containers with one command — see **[docs/self-hosting.md](docs/self-hosting.md)**:
+
+```bash
+cp .env.example .env    # fill in the GitHub App secrets
+docker compose --profile full up -d --build
+```
 
 ## Quickstart (development)
 
@@ -34,18 +44,23 @@ pnpm verify                # format check, lint, typecheck, build, test
 ## Repository layout
 
 ```
-apps/           Deployable applications (API server, web UI) — added per milestone
-packages/       Shared internal packages (config, domain types, DB schema)
+apps/           Deployable applications: api (Fastify), worker (BullMQ), web (React SPA)
+packages/       Shared internal packages: db (Drizzle), queue, contract, ai
 docs/           Documentation
   adr/          Architecture Decision Records — the "why" behind every big choice
-docs/conventions.md   Naming, coding standards, commits, branching
-scripts/        Developer tooling (setup checks, local automation)
-compose.yaml    Local development infrastructure (Postgres, Redis)
+  architecture/ System overview with diagrams, drawn from real code
+scripts/        Developer tooling: doctor, e2e harness (pnpm e2e), demo seeder (pnpm demo:seed)
+compose.yaml    Dev infrastructure by default; --profile full runs the whole product
 ```
+
+Want something to look at immediately? `pnpm demo:seed` replays a curated synthetic history through the real pipeline into your local database — a flaky test with evidence, a suspected one, failure clusters, a quarantine proposal.
 
 ## Documentation
 
+- [Self-hosting guide](docs/self-hosting.md)
+- [System architecture](docs/architecture/system-overview.md)
 - [Architecture Decision Records](docs/adr/) — start with [ADR-0001](docs/adr/0001-record-architecture-decisions.md)
+- [GitHub App setup](docs/github-app-setup.md)
 - [Engineering conventions](docs/conventions.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Code of conduct](CODE_OF_CONDUCT.md)

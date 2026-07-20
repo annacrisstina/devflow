@@ -126,4 +126,17 @@
 | [0018](../adr/0018-local-embeddings-and-semantic-search.md)   | Local embeddings + search       | Accepted | MiniLM (384-dim ONNX, CPU, ~25 MB) in-process — self-host-complete, measured 2–6 ms/text; content-addressed `failure_embeddings` (embed once per distinct text); exact cosine with an HNSW trigger; clustering = deterministic single-link geometry.                                    |
 | [0019](../adr/0019-llm-provider-seam-and-hypotheses.md)       | LLM seam + hypotheses           | Accepted | One-method provider interface; plain-fetch Claude client (BYO key, `claude-haiku-4-5` default, 800-token cap); human-triggered, digest-cached, provenance-stamped advisory text. Rejected: SDK, multi-provider-now, background generation.                                              |
 
-No ADRs are pre-committed for M6; hardening decisions (retention, compose topology, observability stack) get ADRs as they are made.
+| [0020](../adr/0020-containerized-self-hosting.md) | Containerized self-hosting | Accepted | One compose file, two modes (`full` profile); multi-stage node:22-slim images (`pnpm deploy --legacy`); one-shot migrate service gating api/worker; dashboard + migrations + embedding model baked into images; loopback publish default. Rejected: separate prod compose, Alpine, migrations-on-boot, registry publishing (deferred), model volume. |
+| [0021](../adr/0021-observability-health-and-metrics.md) | Observability: health + metrics | Accepted | Worker health server (plain `node:http`, `SELECT 1` + Redis PING) + curated `prom-client` metrics on both processes; instrumentation-never-behavior; `/metrics` unauthenticated by stated posture. Rejected: OpenTelemetry now, StatsD, JSON stats, fastify-metrics. |
+
+## M6 remaining-scope decisions (founder-ratified 2026-07-19)
+
+The remaining-scope review ([session-notes/m6-remaining-scope-review.md](../session-notes/m6-remaining-scope-review.md), produced from repository state after the original M6 review was lost) was approved with:
+
+- **D-M6-1 — backfill cut from v0.1.0**: installation-time history backfill moves to post-MVP with its own design step; seed tooling + dogfooding cover the demo-data need.
+- **D-M6-2 — seed = pipeline replay**: `pnpm demo:seed` replays a curated synthetic history through the real ingestion path (harness reuse, deterministic GUIDs, locality guard, direct-DB workspace attachment). Not a SQL dump.
+- **D-M6-3 — flaky-repo demo**: template ships in-repo (`scripts/demo/flaky-repo/`); the real public repo is a founder artifact.
+- **D-M6-4 — dogfood deployment**: local compose full profile + webhook tunnel; a VPS is optional later, not an M6 requirement.
+- **D-M6-5 — versioning**: v0.1.0 = annotated git tag + GitHub Release; root version bumped; workspace packages stay private/unpublished.
+- **D-M6-6 — Dependabot majors after the tag**, individually per D13.
+- **D-M6-7 — D11 stays as-is during M6**: current merge policy unchanged; revisit outside the milestone.

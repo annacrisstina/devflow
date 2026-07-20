@@ -59,4 +59,4 @@ Install the GitHub App on a repo → push code → runs ingested → JUnit resul
 
 ## Post-MVP (recorded, not committed)
 
-GitLab CI / CircleCI adapters; TAP + JSON report formats; trend analytics (build-time regressions, suite health over time); CODEOWNERS-based flake-alert routing; Slack notifications; public sample instance.
+Installation-time history backfill (cut from v0.1.0 by D-M6-1; needs its own design: run-history pagination, artifact expiry, burst rate-budgeting); GitLab CI / CircleCI adapters; TAP + JSON report formats; trend analytics (build-time regressions, suite health over time); CODEOWNERS-based flake-alert routing; Slack notifications; public sample instance.

@@ -7,6 +7,7 @@ import { createIngestQueue, type IngestQueue } from '@devflow/queue/ingest';
 import { fastify, type FastifyInstance } from 'fastify';
 
 import { authJsPlugin } from './auth/authjs-plugin.js';
+import { registerMetrics } from './http/metrics-plugin.js';
 import type { ApiConfig } from './config.js';
 import { liveFeedPlugin } from './live/socket-plugin.js';
 import { healthRoutes } from './routes/health.js';
@@ -42,6 +43,9 @@ export async function buildApp(
 ): Promise<FastifyInstance> {
   const app = fastify({
     logger: { level: config.logLevel },
+    // Behind a TLS-terminating proxy the forwarded headers carry the real
+    // client/protocol (self-hosting guide); off by default for direct dev.
+    trustProxy: config.trustProxy,
     // Fastify generates its own request ids; webhook deliveries additionally
     // log GitHub's delivery GUID (the cross-system correlation key).
   });
@@ -59,6 +63,7 @@ export async function buildApp(
   });
 
   await app.register(healthRoutes);
+  registerMetrics(app);
   await app.register(webhookRoutes, { webhookSecret: config.webhookSecret });
   await app.register(authJsPlugin, { config });
   // Lazy: the model loads on the first search, not at boot (ADR-0018).

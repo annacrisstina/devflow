@@ -1,8 +1,8 @@
 {
   "name": "devflow",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "DevFlow — developer productivity platform. MVP: CI reliability for GitHub Actions (flaky test detection, quantification and quarantine).",
+  "description": "DevFlow \u2014 developer productivity platform. MVP: CI reliability for GitHub Actions (flaky test detection, quantification and quarantine).",
   "license": "MIT",
   "packageManager": "pnpm@10.4.1",
   "engines": {
@@ -17,7 +17,9 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && pnpm test"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && pnpm test",
+    "e2e": "node scripts/e2e/run.mjs",
+    "demo:seed": "node scripts/demo/seed.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.0",

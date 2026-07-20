@@ -6,6 +6,9 @@ import type { DetectionConfig } from './detection/score.js';
 
 export type WorkerConfig = {
   logLevel: string;
+  /** Health/metrics listener (ADR-0021); loopback in dev, 0.0.0.0 in containers. */
+  healthHost: string;
+  healthPort: number;
   databaseUrl: string;
   redisUrl: string;
   concurrency: number;
@@ -32,6 +35,8 @@ export type WorkerConfig = {
 
 type RawEnv = {
   DEVFLOW_LOG_LEVEL: string;
+  DEVFLOW_WORKER_HOST: string;
+  DEVFLOW_WORKER_PORT: number;
   DEVFLOW_DATABASE_URL: string;
   DEVFLOW_REDIS_URL: string;
   DEVFLOW_WORKER_CONCURRENCY: number;
@@ -66,6 +71,8 @@ const schema = {
     },
     DEVFLOW_REDIS_URL: { type: 'string', default: 'redis://127.0.0.1:6379' },
     DEVFLOW_WORKER_CONCURRENCY: { type: 'number', default: 5 },
+    DEVFLOW_WORKER_HOST: { type: 'string', default: '127.0.0.1' },
+    DEVFLOW_WORKER_PORT: { type: 'number', default: 3002 },
     DEVFLOW_GITHUB_APP_ID: { type: 'string', minLength: 1 },
     DEVFLOW_GITHUB_APP_PRIVATE_KEY_BASE64: { type: 'string', minLength: 1 },
     DEVFLOW_GITHUB_API_URL: { type: 'string', default: 'https://api.github.com' },
@@ -107,6 +114,8 @@ export function loadConfig(): WorkerConfig {
   }
   return {
     logLevel: env.DEVFLOW_LOG_LEVEL,
+    healthHost: env.DEVFLOW_WORKER_HOST,
+    healthPort: env.DEVFLOW_WORKER_PORT,
     databaseUrl: env.DEVFLOW_DATABASE_URL,
     redisUrl: env.DEVFLOW_REDIS_URL,
     concurrency: env.DEVFLOW_WORKER_CONCURRENCY,

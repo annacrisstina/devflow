@@ -6,6 +6,7 @@ import { and, eq, inArray, ne } from 'drizzle-orm';
 import type { Logger } from 'pino';
 
 import type { CheckRunParams, GitHubClient } from '../github/client.js';
+import { checkRunsWritten } from '../metrics.js';
 import type { NormalizedRun } from '../pipeline/normalize-run.js';
 
 export const CHECK_NAME = 'DevFlow flake report';
@@ -127,6 +128,7 @@ export function createAnnotationStage(config: AnnotationStageConfig): Annotation
           existingCheckRunId,
           allClearCheck(failing.length),
         );
+        checkRunsWritten.inc({ action: 'updated' });
         log.info({ checkRunId: existingCheckRunId.toString() }, 'flake check cleared');
       }
       return;
@@ -141,6 +143,7 @@ export function createAnnotationStage(config: AnnotationStageConfig): Annotation
         existingCheckRunId,
         check,
       );
+      checkRunsWritten.inc({ action: 'updated' });
       log.info(
         { checkRunId: existingCheckRunId.toString(), flagged: flagged.length },
         'flake check updated',
@@ -159,6 +162,7 @@ export function createAnnotationStage(config: AnnotationStageConfig): Annotation
       .update(workflowRuns)
       .set({ flakeCheckRunId: checkRunId })
       .where(eq(workflowRuns.id, run.workflowRunId));
+    checkRunsWritten.inc({ action: 'created' });
     log.info({ checkRunId: checkRunId.toString(), flagged: flagged.length }, 'flake check created');
   };
 }

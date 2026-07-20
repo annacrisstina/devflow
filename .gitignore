@@ -5,6 +5,7 @@ node_modules/
 dist/
 .turbo/
 coverage/
+test-results/
 
 # Environment — never commit secrets; .env.example is the documented template
 .env
