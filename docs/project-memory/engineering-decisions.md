@@ -100,6 +100,13 @@
 - **Decision:** AI assists (clustering, summarization, semantic search), never decides (quarantine, flakiness verdicts, auto-resolution).
 - **Motivation:** trust is the product's currency — a false "this is flaky" verdict from a hallucinating model destroys it. Deterministic detection with configurable thresholds + human approval is both better engineering and better interview material ("here is where I chose NOT to use AI, and why").
 
+## D15. Operating model: self-host-first, no multi-tenant SaaS — Locked (ADR-0022)
+
+- **Decision:** DevFlow is self-host-first; operating a public multi-tenant SaaS is out of scope for this roadmap. The unit of deployment is one organization's own instance; the unit of trust is that deployment's operator. Any reversal requires a superseding ADR.
+- **Deletion enabler:** billing/signup/quotas/abuse surface/tenant SLOs are not backlog items; ADR-0012's RLS trigger and ADR-0021's `/metrics` revisit are reassigned to downstream self-hosters who host mutually-untrusting tenants (neither ADR is edited — they are immutable; the linkage lives in ADR-0022 and here).
+- **Demo-instance constraint (founder-ruled 2026-07-28):** a public demo instance, if ever deployed, accepts no App installations and holds no third-party data — seeded synthetic data only. Not planned for v0.1.x.
+- **Terminology guard:** DevFlow remains multi-tenant _software_ (workspaces, ADR-0012); this decision is about _operation_. Isolation discipline (per-endpoint cross-tenant denial tests) stays mandatory.
+
 ---
 
 ## ADR summary (formal records to date)
@@ -128,6 +135,7 @@
 
 | [0020](../adr/0020-containerized-self-hosting.md) | Containerized self-hosting | Accepted | One compose file, two modes (`full` profile); multi-stage node:22-slim images (`pnpm deploy --legacy`); one-shot migrate service gating api/worker; dashboard + migrations + embedding model baked into images; loopback publish default. Rejected: separate prod compose, Alpine, migrations-on-boot, registry publishing (deferred), model volume. |
 | [0021](../adr/0021-observability-health-and-metrics.md) | Observability: health + metrics | Accepted | Worker health server (plain `node:http`, `SELECT 1` + Redis PING) + curated `prom-client` metrics on both processes; instrumentation-never-behavior; `/metrics` unauthenticated by stated posture. Rejected: OpenTelemetry now, StatsD, JSON stats, fastify-metrics. |
+| [0022](../adr/0022-self-host-first-no-multi-tenant-saas.md) | Self-host-first; no SaaS | Accepted | Operating model: one organization per instance, operator = trust root; multi-tenant SaaS out of scope for this roadmap (reversal = superseding ADR). Deletion enabler: kills billing/signup/quotas/abuse work; reassigns ADR-0012's RLS trigger + ADR-0021's `/metrics` revisit downstream. Demo instance, if ever: no installs, synthetic data only. Rejected: undecided status quo, tenant-ready-now, operating a SaaS. |
 
 ## M6 remaining-scope decisions (founder-ratified 2026-07-19)
 
