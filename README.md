@@ -5,7 +5,7 @@
 [![CI](https://github.com/annacrisstina/devflow/actions/workflows/ci.yml/badge.svg)](https://github.com/annacrisstina/devflow/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Status: v0.1.0 in preparation.** The MVP is feature-complete and self-hostable with one command: webhook ingestion → artifact parsing → deterministic flakiness scoring → advisory PR check runs, plus a workspace dashboard with GitHub login, live run feed, human-approved quarantine, and an assistive (and fully removable) AI layer — local semantic search over failure history, failure clustering, opt-in LLM root-cause hypotheses. DevFlow dogfoods itself: this repository's own CI uploads its JUnit results for a DevFlow deployment to ingest.
+**Status: v0.1.0, tagged 2026-07-20** (no GitHub Release yet — intentionally deferred until real-GitHub validation completes). The MVP is feature-complete and self-hostable with one command: webhook ingestion → artifact parsing → deterministic flakiness scoring → advisory PR check runs, plus a workspace dashboard with GitHub login, live run feed, human-approved quarantine, and an assistive (and fully removable) AI layer — local semantic search over failure history, failure clustering, opt-in LLM root-cause hypotheses. Every end-to-end claim so far was verified against a simulated GitHub; the current phase (v0.1.x) validates DevFlow against the real GitHub API and dogfoods it on live repositories. This repository's CI already uploads its JUnit results, ready for a DevFlow deployment to ingest (dogfood deployment: in progress, v0.1.x).
 
 ## The problem
 

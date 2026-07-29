@@ -2,7 +2,7 @@
 
 All notable changes to DevFlow are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/). DevFlow releases are git tags + GitHub Releases — nothing publishes to npm.
 
-## [0.1.0] — 2026-07-19
+## [0.1.0] — 2026-07-20
 
 First release: an open-source, self-hostable CI reliability platform for GitHub Actions — flaky test detection, quantification and human-approved quarantine.
 

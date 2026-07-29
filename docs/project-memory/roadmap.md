@@ -32,12 +32,13 @@ The product became visible: `apps/web` (Vite React SPA behind the API), Auth.js 
 
 The disciplined-AI milestone, split along the self-hosting line: semantic search + failure clustering on a **local** embedding model (MiniLM/pgvector, no key — ADR-0018) and human-triggered root-cause hypotheses behind a **BYO-key** LLM seam (Claude, cached, provenance-stamped — ADR-0019), all inside the amputable `@devflow/ai` package with enumerated call sites (ADR-0017). 158 tests + a 22/22 live e2e (real local model; stubbed LLM through the real client). **Deviations:** live-LLM verification = founder step (needs a key); the original "summarization-only" cut line was consciously inverted at review (founder-ratified) and unused. Details: [development-log.md](../development-log.md).
 
-## Future milestones (order is load-bearing)
+### Milestone 6 — Production hardening + release ✅ (2026-07-20, merged to main in PR #13, tagged `v0.1.0`)
 
-### Milestone 6 — Production hardening + release
+"A stranger can run this," proven literally: one-command containerized self-hosting (compose `full` profile, one-shot migrate service, model baked in — ADR-0020), worker health endpoint + Prometheus metrics on both processes (ADR-0021), the e2e harness promoted into the repo (`pnpm e2e`), demo seeder replaying synthetic history through the real pipeline + flaky-repo template (D-M6-2/3), dogfood CI wiring (JUnit artifacts uploaded from this repo's own runs), README/architecture refresh, CHANGELOG 0.1.0 + version bump + release checklist. Pre-tag gate run in full: `pnpm verify` green (203 tests), `pnpm e2e` 21/21, and the stranger test — fresh clone, guide followed literally — which caught one real defect, fixed as `4401817`. **Deviations:** the founder release steps stopped after the tag — GitHub Release and demo video intentionally deferred to v0.1.x ([checklist](../session-notes/v0.1.0-release-checklist.md)); the real-GitHub pass never ran (the entire integration is stub-validated) and is now v0.1.x Stage 1; Dependabot majors queue (D-M6-6) not started. Details: [development-log.md](../development-log.md).
 
-**Goal:** "a stranger can run this."
-**Scope:** one-command self-host path (compose including apps), seed/demo data + synthetic flaky-repo generator, dogfooding on DevFlow's own CI, observability polish (metrics, health endpoints), docs (architecture diagrams from real code, self-hosting guide), demo video, v0.1.0 tag + CHANGELOG.
+## Current phase — v0.1.x: validation against real GitHub
+
+Not a milestone; it produces observations, not features. The GitHub integration has never spoken to api.github.com — v0.1.x installs the App for real, dogfoods DevFlow on live repositories through a soak period, and fixes only what real usage demonstrates (a code change requires an observation-log entry). Strategic frame: ADR-0022 (self-host-first; no multi-tenant SaaS this roadmap). Exit gate: the "Done before v0.2.0" clauses recorded when the phase plan landed.
 
 ## Dependency graph
 
