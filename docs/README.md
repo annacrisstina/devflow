@@ -5,6 +5,7 @@
 - [architecture/](architecture/) — system architecture documentation (diagrams, data flow). Populated from the first functional milestone onward.
 - [self-hosting.md](self-hosting.md) — running the whole product in containers with one command (ADR-0020).
 - [github-app-setup.md](github-app-setup.md) — creating and configuring the GitHub App a deployment needs.
+- [validation/](validation/) — the v0.1.x validation record: [Stage 1 plan of record](validation/stage1-plan.md), pre-registered [predictions](validation/predictions.md), the append-only [observation log](validation/observation-log.md), and the closeout [validation report](validation/validation-report.md).
 
 ## Project memory
 
@@ -19,4 +20,4 @@ The permanent memory of the project — the source of truth when chat history or
    - [interview-notes.md](project-memory/interview-notes.md) — how each decision translates into interview material.
    - [session-history.md](project-memory/session-history.md) — chronological record of how the project evolved and what was rejected.
 2. **[session-notes/implementation-handoff.md](session-notes/implementation-handoff.md)** — the operational handoff: exact current state, next task, blockers. **Updated at the end of every session.**
-3. **[development-log.md](development-log.md)** — the engineering diary. **One entry appended per completed milestone.**
+3. **[development-log.md](development-log.md)** — the engineering diary. **One entry appended per completed milestone** — within v0.1.x, per completed stage (founder ruling, 2026-07-29).
