@@ -46,6 +46,8 @@ This document plus [predictions.md](predictions.md) committed; `roadmap.md`'s da
 
 [observation-log.md](observation-log.md) exists with format rules and entry template; [validation-report.md](validation-report.md) exists as a declared-empty skeleton. **Complete when:** both files committed; every later task claim cites a log entry.
 
+> **Ruled complete (founder, 2026-07-29):** both scaffolds were intentionally absorbed into the T1 commit (`aff6abf`) — the plan, the prediction register and the README index already referenced them, so committing them separately would have left T1's tree link-incoherent. No standalone T2 commit exists; an empty marker commit would have put a false boundary in history. The remaining clause — every later task claim cites a log entry — is a standing discipline for T3–T8, enforced from the log's first entry onward.
+
 ### T3 — GitHub App configured to full spec (founder, guided; doc fixes only)
 
 Walk [github-app-setup.md](../github-app-setup.md) §1–§6 including §3b literally: private key → `.env`, Checks read/write, OAuth client + callback, Setup URL + redirect-on-update, Installation event subscription; install on this repository and on `devflow-demo-flaky` created from `scripts/demo/flaky-repo/`. The guide itself is under test — any divergence from the real GitHub UI is fixed in the guide, observation-logged. **Complete when:** the worker boots with real credentials (its config hard-requires App ID + key). **Evidence:** worker startup log; both installations visible on the App page.

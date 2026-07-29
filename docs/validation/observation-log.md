@@ -26,4 +26,9 @@ Rules:
 
 ---
 
-_(No entries yet. The first entries land with T3 — App configuration.)_
+## 2026-07-29 — T2 scaffolds absorbed into T1; T2 ruled complete without its own commit (unregistered)
+
+- **Task:** T2 — reviewed repository state after the T1 commit `aff6abf` to determine remaining T2 scope.
+- **Expected:** T2 lands `observation-log.md` and `validation-report.md` in its own commit, keeping the task boundary visible in history.
+- **Observed:** both scaffolds were already committed in `aff6abf`, because the plan, the prediction register and the README index referenced them and T1's tree had to stay link-coherent. No committable T2 scope remained.
+- **Disposition:** `doc-fix` — founder ruling (2026-07-29): T2 is complete on the T1 evidence; no artificial marker commit. The T2 section of [stage1-plan.md](stage1-plan.md) records the ruling; that fix lands in the same commit as this entry.
