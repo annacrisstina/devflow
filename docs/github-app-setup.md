@@ -36,13 +36,20 @@ GitHub → Settings → Developer settings → GitHub Apps → **New GitHub App*
 
 Everything else stays off. Least privilege is deliberate: that friction of adding permissions late is the honest cost of not asking for them before needing them. **If your App predates M3:** add Checks: read-and-write on the App's Permissions & events page, then approve the permission request on each installation (Settings → Installations) — until approved, annotation jobs fail with 403 and retry into the DLQ while ingestion and scoring continue unaffected (ADR-0011). `installation` / `installation_repositories` lifecycle events are delivered to apps automatically, no subscription needed.
 
-**Private key (needed from M2 on):** on the App's settings page, generate a private key — GitHub downloads a PKCS#1 PEM file. It is the system's highest-value secret: never enters the repo, lives only in `.env`, base64-encoded:
+**Private key (needed from M2 on):** on the App's settings page, generate a private key — GitHub downloads a PKCS#1 PEM file to wherever your browser saves downloads (under WSL2 that is the Windows Downloads folder, e.g. `/mnt/c/Users/<you>/Downloads`, not `~/Downloads`). It is the system's highest-value secret: never enters the repo, lives only in `.env`, base64-encoded. `.env` is not shell-evaluated — the `$(…)` below is command substitution, so run the lines through your shell rather than pasting them into the file:
 
 ```sh
-# .env
-DEVFLOW_GITHUB_APP_ID=<App ID, shown at the top of the App settings page>
-DEVFLOW_GITHUB_APP_PRIVATE_KEY_BASE64=$(base64 -w0 ~/Downloads/devflow-dev.*.private-key.pem)
+echo "DEVFLOW_GITHUB_APP_ID=<App ID, shown at the top of the App settings page>" >> .env
+echo "DEVFLOW_GITHUB_APP_PRIVATE_KEY_BASE64=$(base64 -w0 <downloads-dir>/devflow-dev-*.private-key.pem)" >> .env
 ```
+
+Verify the round-trip, then delete the downloaded `.pem` — the key lives only in `.env`:
+
+```sh
+awk -F= '/PRIVATE_KEY_BASE64/{print $2}' .env | base64 -d | head -1   # → -----BEGIN RSA PRIVATE KEY-----
+```
+
+Display only that header line — never `cat` the PEM or the decoded value. If the full key ever appears on screen, in a log, or in a shared screenshot, treat it as exposed: generate a new key on the App page, replace the `.env` value, revoke the old one.
 
 (M1 deliberately skipped this — no key existed while nothing called the GitHub API.)
 
@@ -50,7 +57,7 @@ DEVFLOW_GITHUB_APP_PRIVATE_KEY_BASE64=$(base64 -w0 ~/Downloads/devflow-dev.*.pri
 
 M4's dashboard needs three more things on the same App settings page (**if your App predates M4**, add them now; no new repository permissions are involved):
 
-1. **User OAuth (login):** under _Identifying and authorizing users_ set **Callback URL** to `http://127.0.0.1:3001/api/auth/callback/github` (or `<DEVFLOW_APP_URL>/api/auth/callback/github` for a deployment) and enable **Request user authorization (OAuth) during installation**. Then generate a **client secret** under _Client secrets_. The App's own OAuth credentials serve user login (ADR-0013) — there is no separate OAuth App.
+1. **User OAuth (login):** under _Identifying and authorizing users_ set **Callback URL** to `http://127.0.0.1:3001/api/auth/callback/github` (or `<DEVFLOW_APP_URL>/api/auth/callback/github` for a deployment). Leave **Request user authorization (OAuth) during installation** unchecked — GitHub makes it mutually exclusive with the Setup URL ("Unavailable when requesting OAuth during installation"), and the claiming flow needs the Setup URL; the designed order is login first, then install (ADR-0012 binds the signed `state` to the live session). Then generate a **client secret** under _Client secrets_. The App's own OAuth credentials serve user login (ADR-0013) — there is no separate OAuth App.
 2. **Setup URL (workspace claiming, ADR-0012):** under _Post installation_ set **Setup URL** to `http://127.0.0.1:3001/api/github/setup` and tick **Redirect on update**. The dashboard's "Connect GitHub" button carries a signed `state` through this redirect; without the Setup URL, installations complete on GitHub but are never claimed by a workspace.
 3. **Subscribe to events → Installation** (alongside Workflow run): keeps `installations` rows in sync (account name, uninstalls). Deliveries for it appear like any other webhook.
 
@@ -66,7 +73,7 @@ Note for dev: the OAuth callback and Setup URL point at the **API port directly*
 
 ## 4. Install the app
 
-App page → **Install App** → your account → select the repository (or a scratch repo with a workflow, for testing). GitHub immediately sends `installation` events — first proof the pipe works.
+App page → **Install App** → your account → select the repository (or a scratch repo with a workflow, for testing). GitHub immediately sends `installation` events — first proof the pipe works. (A `ping` delivery from webhook creation may already sit in Recent Deliveries. Green checkmarks here only mean the tunnel accepted the POST — smee answers 200 even with no client connected — so deliveries sent before §5's stack is up are lost locally; recover them with **Redeliver** in §6.)
 
 ## 5. Run the local loop
 
@@ -112,6 +119,7 @@ docker exec devflow-postgres psql -U devflow -d devflow \
 
 ## Troubleshooting
 
+- **`docker compose up` fails with "container name … already in use"** — a different checkout's stopped containers (e.g. a fresh-clone audit run) hold the pinned `devflow-postgres`/`devflow-redis` names; only one checkout can own the stack at a time. `docker rm` the stale containers (their data stays in that project's volumes) and re-run.
 - **401 in the API log** — webhook secret mismatch between the App form and `.env`. Fix `.env`, restart the API, redeliver from the Recent Deliveries UI.
 - **Nothing arrives** — smee client not running, or the App's webhook URL points to a different/stale channel.
 - **Delivery marked failed on GitHub** — the API was down or Postgres unreachable (the endpoint answers 500 by design then). Bring the stack up and use Redeliver; nothing is lost.
