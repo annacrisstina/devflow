@@ -120,6 +120,6 @@ docker exec devflow-postgres psql -U devflow -d devflow \
 ## Troubleshooting
 
 - **`docker compose up` fails with "container name … already in use"** — a different checkout's stopped containers (e.g. a fresh-clone audit run) hold the pinned `devflow-postgres`/`devflow-redis` names; only one checkout can own the stack at a time. `docker rm` the stale containers (their data stays in that project's volumes) and re-run.
-- **401 in the API log** — webhook secret mismatch between the App form and `.env`. Fix `.env`, restart the API, redeliver from the Recent Deliveries UI.
+- **401 in the API log** — webhook secret mismatch between the App form and `.env`; either side can be the stale one. Re-paste the value into whichever is wrong (restart the API only if `.env` changed), then redeliver from the Recent Deliveries UI.
 - **Nothing arrives** — smee client not running, or the App's webhook URL points to a different/stale channel.
 - **Delivery marked failed on GitHub** — the API was down or Postgres unreachable (the endpoint answers 500 by design then). Bring the stack up and use Redeliver; nothing is lost.

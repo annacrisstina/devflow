@@ -102,3 +102,31 @@ Rules:
 - **Expected:** the T3 completion criterion — "the worker boots with real credentials (its config hard-requires App ID + key)".
 - **Observed:** containers healthy (project `devflow`); migrations applied to an empty database (volume created 2026-07-31 12:49); API on `127.0.0.1:3001` and worker booted (`ingest worker started`), both `/healthz` → `{"status":"ok"}` (worker on :3002) — the worker's boot-time base64→PEM decode of the real key succeeded; smee client forwarding to `/webhooks/github`. Baseline row counts: `webhook_events` 0, `workflow_runs` 0, `installations` 0, `test_results` 0. Install-side evidence: one installation covering `devflow` + `devflow-demo-flaky` (App ID 4435182). §6's end-to-end verification is deliberately not run here — its subject matter (deliveries, redelivery, artifact pipeline) is T4/T5; the lost `ping`/`installation.created` deliveries await T4's redelivery pass.
 - **Disposition:** `confirms` — T3 complete per its plan criterion. Guide §§1–5 walked literally; all divergences dispositioned in the entries above.
+
+## 2026-07-31 — First real redelivery rejected 401: webhook secret mismatch, form side (unregistered)
+
+- **Task:** T4 — redelivered the T3 `ping` through the now-listening tunnel.
+- **Expected:** 202, `webhook delivery persisted`.
+- **Observed:** smee forwarded correctly; API rejected with 401 `webhook delivery rejected: invalid signature`. Local side verified clean without displaying the value (64 hex chars, no CR/quotes/whitespace; API booted after the last `.env` edit) — isolating the mismatch to the App form, which still held a stale value from the §1 rotation. Re-pasting the `.env` value into the form (via clipboard, never displayed) and redelivering produced 202. The troubleshooting bullet's failure mode is confirmed, but its fix assumes `.env` is the stale side; here it was the form.
+- **Disposition:** `doc-fix` — troubleshooting bullet generalized to either side; lands in the same commit as this entry.
+
+## 2026-07-31 — T4: real deliveries persisted; `installations` synced from a real payload (H11, first leg)
+
+- **Task:** T4 — redelivered `ping` and `installation.created`; queried Postgres.
+- **Expected:** raw-first persistence (ADR-0005) against real payloads; `installation.created` processed into an `installations` row.
+- **Observed:** `ping` persisted (GUID `7d78a3a0-8c0f-11f1-8109-c534a14e2e84`, `action` and `installation_id` NULL — only `workflow_run`/`installation` enqueue processing). `installation.created` (GUID `86536780-8c19-11f1-8e22-e5d017dac832`) → API `installation job enqueued`, worker `installation event applied` → row: `github_installation_id` 150087152, `annacrisstina`/`User`, `uninstalled_at` NULL, `workspace_id` NULL (claiming is exclusively T7's signed redirect — correctly untouched).
+- **Disposition:** `confirms` — H11's install leg holds; H11 stays `pending` for its remaining legs (uninstall; T7 claim interplay).
+
+## 2026-07-31 — H13 confirmed: real Redeliver absorbed as a duplicate
+
+- **Task:** T4 — redelivered `installation.created` (`86536780-…`) a second time via the Recent Deliveries UI.
+- **Expected:** H13: second delivery logs `duplicate webhook delivery absorbed`; row count unchanged.
+- **Observed:** API responded 200 (vs 202 first time) and logged `duplicate webhook delivery absorbed`; post-redeliver query: 4 `webhook_events` rows, 4 distinct GUIDs — exactly one row per GUID; `installations` unchanged (convergent handler). ADR-0005 holds against GitHub's real redelivery mechanism.
+- **Disposition:** `confirmed` — H13 flipped in [predictions.md](predictions.md).
+
+## 2026-07-31 — `installation_repositories` events arrive under the Installation subscription; persisted raw, unprocessed by design
+
+- **Task:** T4 — removed and re-added `devflow-demo-flaky` in the installation's repository selection.
+- **Expected:** open question from the 2026-07-30 no-separate-checkbox entry: whether `installation_repositories` deliveries arrive at all under the current UI's single **Installation** checkbox.
+- **Observed:** both deliveries arrived and persisted (`45230202-…` `removed`, `497706a0-…` `added`, both carrying `installation_id` 150087152); the worker did not process them — correct per the code, which enqueues only `installation` events. Note for H11's final disposition: its wording ("rows appear/update on … repo-selection change") overstates the implementation — `installations` tracks account identity and uninstall state, not repository selection; "in sync" means those fields only. This entry resolves the earlier entry's `open` disposition: subscription behavior observed, no guide change needed.
+- **Disposition:** `confirms` — H11 evidence accumulated; row stays `pending` until its remaining legs are seen.
