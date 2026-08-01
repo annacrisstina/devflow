@@ -130,3 +130,24 @@ Rules:
 - **Expected:** open question from the 2026-07-30 no-separate-checkbox entry: whether `installation_repositories` deliveries arrive at all under the current UI's single **Installation** checkbox.
 - **Observed:** both deliveries arrived and persisted (`45230202-…` `removed`, `497706a0-…` `added`, both carrying `installation_id` 150087152); the worker did not process them — correct per the code, which enqueues only `installation` events. Note for H11's final disposition: its wording ("rows appear/update on … repo-selection change") overstates the implementation — `installations` tracks account identity and uninstall state, not repository selection; "in sync" means those fields only. This entry resolves the earlier entry's `open` disposition: subscription behavior observed, no guide change needed.
 - **Disposition:** `confirms` — H11 evidence accumulated; row stays `pending` until its remaining legs are seen.
+
+## 2026-08-01 — T5: first real api.github.com pass — token dance and artifact pipeline end to end (H1–H5)
+
+- **Task:** T5 — founder re-ran the latest `main` CI run from the Actions UI (run 30439149461, producing `run_attempt` 2); worker processed the resulting `workflow_run.completed` delivery (`2b68cc00-8d7e-11f1-8ea3-9044a1ba7c59`).
+- **Expected:** H1 (App JWT accepted, exchange 201 first attempt), H2 (`{token, expires_at}` shape, `token` scheme accepted), H3 (listing finds `test-results`, one page), H4 (302 zip download works, auth header dropped cross-origin), H5 (v7 nested zip layout found and parsed).
+- **Observed:** the worker completed the job in one pass with no retries: token exchange succeeded (a 401 would have failed the job — H12 note: no 401s observed), artifact listed and downloaded, zip scanned. `run_artifacts`: `test-results`, github_artifact_id 8815539220, 10 249 bytes, **5 XML files found**, no skip reason. `workflow_runs`: `(30439149461, 2)`, `head_branch` main, conclusion `success`, `processing_status = 'succeeded'`, **203 test results** — exactly the M6 pre-tag suite count. Detection ran post-persist and correctly no-opped (`no identities to assess` — an all-green run gives ADR-0010 nothing to score). Run URL: `https://github.com/annacrisstina/devflow/actions/runs/30439149461`.
+- **Disposition:** `confirmed` × 5 — H1–H5 flipped in [predictions.md](predictions.md).
+
+## 2026-08-01 — H6 confirmed: real `workflow_run` payloads normalize cleanly; `in_progress` persisted, not enqueued
+
+- **Task:** T5 — inspected both real `workflow_run` deliveries (`f2fd9710-…` `in_progress`, `2b68cc00-…` `completed`) against the normalization path.
+- **Expected:** H6: real deliveries normalize without permanent failures; numeric IDs at real magnitudes.
+- **Observed:** both persisted raw; only `completed` enqueued processing (by design). Normalized fields match the GitHub UI: run ID 30439149461 and artifact ID 8815539220 sit comfortably in `bigint`; `head_branch` non-null here; conclusion `success`. Scope note: the exotic conclusion values the stub never sent (`cancelled`, `skipped`, `startup_failure`) remain unobserved — the prediction as registered ("no permanent failures on real deliveries") is met; any later normalization failure during T6/soak becomes a new entry and, if durable, a new prediction row.
+- **Disposition:** `confirmed` — H6 flipped in [predictions.md](predictions.md).
+
+## 2026-08-01 — smee tunnel dropped and auto-reconnected mid-session (unregistered, environment)
+
+- **Task:** T5 — tunnel observation during the run.
+- **Expected:** guide §2/§5 treat the smee client as fire-and-forget.
+- **Observed:** the client logged `ECONNRESET`, reconnected on its own, and kept forwarding; both deliveries of the session persisted — nothing observed lost. If a delivery ever lands in the reconnect gap, Recent Deliveries + Redeliver is the recovery path (T4-validated).
+- **Disposition:** `confirms` — no fix; noted for the soak, where tunnel gaps become likelier.
