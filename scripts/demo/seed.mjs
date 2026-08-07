@@ -298,13 +298,20 @@ async function main() {
   // (the signed-state claim flow is for real GitHub installs; demo data is
   // local by definition). Without a workspace the data stays unclaimed and
   // becomes visible after login + re-run.
+  // "First workspace by created_at" assumes the usual single-workspace dev
+  // database; with several workspaces the demo lands in the oldest one —
+  // delete strays or re-point manually if that is not the one you use.
   const ws = await db.query(`SELECT id, name FROM workspaces ORDER BY created_at LIMIT 1`);
   if ((ws.rowCount ?? 0) > 0) {
-    await db.query(`UPDATE installations SET workspace_id = $1 WHERE github_installation_id = $2`, [
-      ws.rows[0].id,
-      INSTALLATION_ID,
-    ]);
-    check('demo installation attached to workspace', true, `"${ws.rows[0].name}"`);
+    const attached = await db.query(
+      `UPDATE installations SET workspace_id = $1 WHERE github_installation_id = $2`,
+      [ws.rows[0].id, INSTALLATION_ID],
+    );
+    check(
+      'demo installation attached to workspace',
+      attached.rowCount === 1,
+      `"${ws.rows[0].name}"`,
+    );
   } else {
     console.log(
       'NOTE  no workspace yet — log in once (pnpm dev, GitHub login), then re-run pnpm demo:seed to attach the demo data',

@@ -38,7 +38,7 @@ The disciplined-AI milestone, split along the self-hosting line: semantic search
 
 ## Current phase — v0.1.x: validation against real GitHub
 
-Not a milestone; it produces observations, not features. The GitHub integration has never spoken to api.github.com — v0.1.x installs the App for real, dogfoods DevFlow on live repositories through a soak period, and fixes only what real usage demonstrates (a code change requires an observation-log entry). Strategic frame: ADR-0022 (self-host-first; no multi-tenant SaaS this roadmap). Exit gate: the "Done before v0.2.0" clauses recorded when the phase plan landed.
+Not a milestone; it produces observations, not features. The GitHub integration has never spoken to api.github.com — v0.1.x installs the App for real, dogfoods DevFlow on live repositories through a soak period, and fixes only what real usage demonstrates (a code change requires an observation-log entry). Strategic frame: ADR-0022 (self-host-first; no multi-tenant SaaS this roadmap). Phase plan of record: [Stage 1 plan](../validation/stage1-plan.md) (Stage 0 reconciliation ✅ 2026-07-28 → Stage 1 real-GitHub validation ✅ 2026-08-07, [report](../validation/validation-report.md) — 12 hypotheses confirmed, 1 not-observable, both founder gates closed → Stage 2 soak, scope proposed in the report §6). Exit gate: the "Done before v0.2.0" clauses recorded there.
 
 ## Dependency graph
 
