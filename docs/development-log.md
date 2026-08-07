@@ -411,4 +411,10 @@ Unchanged from M5 plus the CHANGELOG "Known limitations" list (single-member wor
 
 ---
 
-_(Next entry: post-v0.1.0 work, appended when a milestone completes.)_
+## v0.1.x Stage 1 — validation against real GitHub (2026-07-30 → 2026-08-07)
+
+The stub-validated integration finally met api.github.com, and held. App created and configured with the guide walked literally (every UI divergence fixed in-guide, same stage); inbound leg: real deliveries persisted, HMAC rejections clean, real Redeliver absorbed as a duplicate (H13); outbound leg: token dance → artifact listing → 302 zip download → parse → persist (H1–H5), real payloads normalizing cleanly (H6). Live detection scored a real same-commit divergence and annotated the real PR — create, PATCH (via controlled eviction after the plan's probe was found to misread the queue contract), and on-the-PR all confirmed (H7), with `flake_check_run_id` matching the check URL. Real OAuth login through the Auth.js shim (H9), signed-state claim riding the saved-update Setup redirect (H10), lifecycle sync live (H11), and the stage-long clock-drift watch closing clean (H12). One hypothesis unobservable by design (H8 — the Checks-permission lag never occurred; the soak watches). **Score: 12 confirmed, 1 not-observable, 0 refuted** — [validation-report.md](validation/validation-report.md) maps every row to its evidence. Both founder gate rows (live PR annotation; real-UI quarantine) ✅ in the [release checklist](session-notes/v0.1.0-release-checklist.md). Fixes, all log-traced: guide §3b dev-browser and claim-flow rules, demo README timing/tenancy caveats, the seeder's vacuous attach check (now asserts row count), one stale pre-rewrite hash. Notable incidents: embedded-webview CSRF failures, cookie host-scoping, a WSL forwarding stall, a smee tunnel drop, a demo-data mis-attachment to an accidental workspace, and — the stage's best detective story — four live-feed false negatives whose root cause was the claim-flow Save silently removing the demo repo from the installation; the live feed then passed its first fair test on real traffic (2026-08-07). Every one is now documented where the next person will trip on it. **Next:** GitHub Release + demo video (the portfolio-presentable milestone), then the Dependabot majors queue and the Stage 2 soak.
+
+---
+
+_(Next entry: Stage 2 soak closeout.)_

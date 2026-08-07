@@ -58,7 +58,7 @@ Display only that header line — never `cat` the PEM or the decoded value. If t
 M4's dashboard needs three more things on the same App settings page (**if your App predates M4**, add them now; no new repository permissions are involved):
 
 1. **User OAuth (login):** under _Identifying and authorizing users_ set **Callback URL** to `http://127.0.0.1:3001/api/auth/callback/github` (or `<DEVFLOW_APP_URL>/api/auth/callback/github` for a deployment). Leave **Request user authorization (OAuth) during installation** unchecked — GitHub makes it mutually exclusive with the Setup URL ("Unavailable when requesting OAuth during installation"), and the claiming flow needs the Setup URL; the designed order is login first, then install (ADR-0012 binds the signed `state` to the live session). Then generate a **client secret** under _Client secrets_. The App's own OAuth credentials serve user login (ADR-0013) — there is no separate OAuth App.
-2. **Setup URL (workspace claiming, ADR-0012):** under _Post installation_ set **Setup URL** to `http://127.0.0.1:3001/api/github/setup` and tick **Redirect on update**. The dashboard's "Connect GitHub" button carries a signed `state` through this redirect; without the Setup URL, installations complete on GitHub but are never claimed by a workspace.
+2. **Setup URL (workspace claiming, ADR-0012):** under _Post installation_ set **Setup URL** to `http://127.0.0.1:3001/api/github/setup` and tick **Redirect on update**. The dashboard's "Connect GitHub" button carries a signed `state` through this redirect; without the Setup URL, installations complete on GitHub but are never claimed by a workspace. If the App is **already installed**, GitHub shows the installation's settings page — merely viewing it fires nothing; the claim rides the redirect that follows a completed action, so **save an update** (Repository access → Save, selection unchanged is fine). If you do toggle the selection to force the update, **re-check it before saving**: removing a repository silently stops every delivery for it — runs still complete on GitHub, but no `workflow_run` events are created, and nothing downstream will tell you why. The signed `state` expires after 15 minutes; re-click Connect GitHub for a fresh one. After the claim, dev browsers land on the API port (`:3001`), which does not serve the SPA — a plain page whose URL ends in `?connected=1` is success; navigate back to the dashboard.
 3. **Subscribe to events → Installation** (alongside Workflow run): keeps `installations` rows in sync (account name, uninstalls). Deliveries for it appear like any other webhook.
 
 ```sh
@@ -70,6 +70,8 @@ DEVFLOW_GITHUB_APP_SLUG=<the app's URL slug, e.g. devflow-dev-username>
 ```
 
 Note for dev: the OAuth callback and Setup URL point at the **API port directly** (not the smee tunnel — those are browser redirects, not webhooks; they happen on your machine and need no tunnel).
+
+Two dev-browser rules (both produce confusing failures when broken): **use a real browser** — embedded webviews (e.g. VS Code's Simple Browser) drop the Auth.js CSRF cookie and every sign-in dies with `MissingCSRF`; and **browse the dashboard at `http://127.0.0.1:5173`, never `localhost:5173`** — cookies are host-scoped, the whole auth flow is anchored on `127.0.0.1` (`DEVFLOW_APP_URL` default), and a session minted on `127.0.0.1` is invisible from a `localhost` origin, so login "succeeds" yet the dashboard stays logged out.
 
 ## 4. Install the app
 

@@ -65,19 +65,19 @@ Rules:
 
 - **Task:** T3 — §3b: set the Callback URL, enabled **Request user authorization (OAuth) during installation** per the guide, then attempted to set the Setup URL.
 - **Expected:** guide §3b: both enabled together — Callback URL + OAuth-during-installation (item 1) and Setup URL + Redirect on update (item 2).
-- **Observed:** with the toggle on, the Setup URL field is disabled with the message "Unavailable when requesting OAuth during installation." Code inspection shows the toggle was never load-bearing: `/api/github/setup` (`apps/api/src/routes/v1/installations.ts:45`) requires a live session and verifies the signed state against that session's user (ADR-0012) — the designed flow is login first, then install; nothing in the codebase consumes an install-time OAuth redirect. The Setup URL *is* load-bearing: without it, installations complete on GitHub but are never claimed (the guide's own words).
+- **Observed:** with the toggle on, the Setup URL field is disabled with the message "Unavailable when requesting OAuth during installation." Code inspection shows the toggle was never load-bearing: `/api/github/setup` (`apps/api/src/routes/v1/installations.ts:45`) requires a live session and verifies the signed state against that session's user (ADR-0012) — the designed flow is login first, then install; nothing in the codebase consumes an install-time OAuth redirect. The Setup URL _is_ load-bearing: without it, installations complete on GitHub but are never claimed (the guide's own words).
 - **Disposition:** `doc-fix` — founder ruling (2026-07-30): follow the implementation; the toggle stays off, Setup URL + Redirect on update configured. §3b item 1 rewritten; lands in the same commit as this entry. H9 and H10 are unaffected and stay `pending`.
 
 ## 2026-07-30 — "Expire user authorization tokens" absent from the current App settings UI (unregistered)
 
-- **Task:** T3 — §3b: checked *Identifying and authorizing users* for the token-expiry setting, as H9 background.
+- **Task:** T3 — §3b: checked _Identifying and authorizing users_ for the token-expiry setting, as H9 background.
 - **Expected:** a visible **Expire user authorization tokens** option (historical UI), whose default state could be recorded.
 - **Observed:** no such setting anywhere on the current settings page. Whatever GitHub's current default token-lifetime behavior is, it is not configurable here; the real behavior will surface at first login.
 - **Disposition:** `open` — resolves at T7 when the Auth.js shim meets real token semantics (H9).
 
 ## 2026-07-30 — No separate "Installation repositories" event checkbox in the current UI (unregistered)
 
-- **Task:** T3 — §3b item 3: subscribed to **Installation** in *Subscribe to events*; looked for a separate **Installation repositories** checkbox.
+- **Task:** T3 — §3b item 3: subscribed to **Installation** in _Subscribe to events_; looked for a separate **Installation repositories** checkbox.
 - **Expected:** unclear from the guide itself, which is in tension: §3 says `installation` / `installation_repositories` lifecycle events are "delivered to apps automatically, no subscription needed," while §3b item 3 says to subscribe to **Installation**. H11 assumes both event types arrive.
 - **Observed:** the current UI offers **Installation** (now ticked) and no separate **Installation repositories** checkbox.
 - **Disposition:** `open` — whether `installation_repositories` deliveries arrive under this configuration is exactly what H11 observes (T4/T7); the guide's internal tension gets resolved by that evidence, not by guessing now.
@@ -151,3 +151,108 @@ Rules:
 - **Expected:** guide §2/§5 treat the smee client as fire-and-forget.
 - **Observed:** the client logged `ECONNRESET`, reconnected on its own, and kept forwarding; both deliveries of the session persisted — nothing observed lost. If a delivery ever lands in the reconnect gap, Recent Deliveries + Redeliver is the recovery path (T4-validated).
 - **Disposition:** `confirms` — no fix; noted for the soak, where tunnel gaps become likelier.
+
+## 2026-08-01 — T6: live detection and first real check run (H7, create path)
+
+- **Task:** T6 — seeded `devflow-demo-flaky` from the template; first CI run failed; founder re-ran all jobs on the same commit (`31699e59`, run 30691675671, attempts 1→2).
+- **Expected:** ADR-0010's strongest signal — same-commit divergence, weight 1.0 — promotes `retries the payment gateway on timeout` to `suspected`; annotation posts a neutral check.
+- **Observed:** per-test divergence across attempts (both runs concluded `failure`, but the flaky test's outcome flipped) scored 0.333/`suspected`, `divergence_evidence` 1 — the e2e's pinned arithmetic, live. Worker: `suspected: 1 … flagged: 1, checkRunId: 91347631009, flake check created`; ID round-tripped into `workflow_runs.flake_check_run_id` (attempt-2 row). Founder verified the real Checks tab: check is neutral, evidence table renders, title "1 suspected-flaky among 2 failing tests" (screenshot). The healthy-verdict failing test was correctly not flagged.
+- **Disposition:** `confirms` — H7's create path (body accepted, ID round-trip, rendering); H7 stays `pending` on its PATCH and on-the-PR clauses.
+
+## 2026-08-01 — Each run attempt creates its own check object; GitHub displays latest-per-name (unregistered)
+
+- **Task:** T6 — founder re-ran the same commit again (attempt 3) as a PATCH probe (a misdirected one — see next entry).
+- **Expected:** plan wording: "PATCH idempotency on a further delivery (still exactly one check)".
+- **Observed:** attempt 3 is a new `(github_run_id, run_attempt)` row with no stored check ID, so the annotation stage correctly took the create path: second check object `91348288795` on the same SHA. The real Checks UI collapses same-name checks to the latest object — founder verified exactly one visible "DevFlow flake report". So per-attempt creation never visually stacks duplicates; "exactly one check" holds at the UI level by GitHub's own semantics.
+- **Disposition:** `confirms` — matches `annotation-stage.ts` as written (PATCH is for reprocessing the _same_ attempt); no fix. Display semantics recorded for H7's final PR clause.
+
+## 2026-08-01 — Redelivery of a successfully completed event is a queue-layer no-op; the plan's PATCH probe cannot fire (unregistered)
+
+- **Task:** T6 — founder redelivered attempt 3's `workflow_run.completed` (`c055b2b0-8d83-11f1-8aef-9e943b31ab5e`) to trigger the PATCH path.
+- **Expected:** duplicate absorbed at the DB, job re-enqueued (webhooks.ts enqueues on the duplicate path), reprocess finds `flake_check_run_id` → `flake check updated`.
+- **Observed:** no PATCH: `devflow_check_runs_written_total` shows `created` 2 and no `updated` counter. Cause: the re-add uses `jobId: evt-16`, which still sits in BullMQ's completed set (`removeOnComplete: {count: 1000}`), so BullMQ silently dropped it. This is the queue contract behaving exactly as its own comment documents ("best-effort only … completed jobs are eventually removed and a later redelivery would re-enqueue") — redelivery-as-repair works for _lost_ jobs (not in the completed set), not for _successfully completed_ ones until they age out of the last-1000 window. The plan's "further delivery → PATCH" procedure rests on a misreading of that contract; the system is correct per design, the test procedure was not.
+- **Disposition:** `confirms` the queue contract; the PATCH clause of H7 needs a reprocess-shaped trigger instead — next entry records the chosen route.
+
+## 2026-08-01 — Controlled eviction, then redelivery: real Checks API PATCH confirmed (H7, PATCH clause)
+
+- **Task:** T6 — founder-approved simulation of the documented completed-job age-out: `zrem bull:ingest:completed evt-16` + `del bull:ingest:evt-16` (ephemeral Redis queue state only; Postgres and code untouched), then founder redelivered `c055b2b0-…` once more.
+- **Expected:** re-add succeeds; full reprocess of run row 4; annotation stage finds `flake_check_run_id` 91348288795 and PATCHes it; no third check object.
+- **Observed:** all three: `devflow_check_runs_written_total{action="updated"} 1` (previously absent), worker `flake check updated`, DB `flake_check_run_id` unchanged with no new check ID; `webhook_events` still one row per GUID; replace-per-run held through the reprocess (identical divergence evidence, score re-decayed 0.3333 → 0.3329); `evt-16` re-entered the completed set on success. The PATCH body is accepted by the real Checks API.
+- **Disposition:** `confirms` — H7's PATCH clause; H7 stays `pending` only on its on-the-PR clause.
+
+## 2026-08-06 — T6 closed: neutral check visible on the real PR, DB ID matches the check URL (H7, on-the-PR clause)
+
+- **Task:** T6 — new session; full stack restarted (Docker compose, API, worker, smee client — the smee client was initially forgotten, leaving re-run deliveries lost at the tunnel; recovered by re-running after starting it). Founder re-ran the failing workflow on `devflow-demo-flaky` and verified the PR's Checks tab. PR: <https://github.com/annacrisstina/devflow-demo-flaky/pull/1>; check: <https://github.com/annacrisstina/devflow-demo-flaky/runs/92586551161>; screenshot: founder-captured, 2026-08-06 (PR Checks tab, single neutral DevFlow flake report).
+- **Expected:** H7's remaining clause: exactly one visible neutral "DevFlow flake report" on the PR, with the DB-stored check ID equal to the ID in the real check's URL.
+- **Observed:** all held. The PR shows a single neutral DevFlow flake report — "1 suspected-flaky among 1 failing test", verdict `suspected`, score 0.28, evidence: 1 same-commit pass/fail divergence. DB: `workflow_runs` row 6 carries `flake_check_run_id = 92586551161`, `processing_status = 'succeeded'` — equal to the check URL's ID, founder-verified. Earlier check objects (91347631009, 91348288795) remain collapsed behind GitHub's latest-per-name display semantics (2026-08-01 entry): exactly one visible check. Score 0.28 vs 0.3333 at first detection reads as the scorer's time decay over the intervening days (interpretation; not separately verified).
+- **Disposition:** `confirms` — H7's on-the-PR clause; with the create path and PATCH clause (2026-08-01 entries), H7 is fully `confirmed`. T6 complete per plan: DB ID = check-URL ID, no duplicate check; evidence = PR/check URLs, screenshot, DB row. Release-checklist gate row 1 flips at T8 with this entry as its evidence link.
+
+## 2026-08-06 — T7: real OAuth login through the Auth.js shim (H9); two environment frictions
+
+- **Task:** T7 — first real login attempt from VS Code's Simple Browser failed `MissingCSRF`; a later Chrome attempt hit `ERR_CONNECTION_REFUSED` (Vite had been stopped). Server-side flow was then verified independently: simulated CSRF-cookie sign-in POSTs (direct to :3001 and through the Vite proxy) both returned 302 to `github.com/login/oauth/authorize` with client ID and the correct `redirect_uri` — the shim, env vars, and CSRF double-submit are all sound.
+- **Expected:** H9 — login round-trip yields a session row; registered failure modes were callback mismatch / login loop / no session.
+- **Observed:** neither registered failure mode; both blocks were environmental. (1) Embedded-webview browsers (VS Code Simple Browser) do not return the CSRF cookie → `MissingCSRF`; a real browser is required. (2) Cookies are host-scoped and the flow is anchored on `127.0.0.1` (`DEVFLOW_APP_URL` default) — the dashboard must be browsed at `http://127.0.0.1:5173`, not `localhost:5173`, or the session cookie set by the callback never reaches the SPA's proxied requests. From Windows Chrome at `127.0.0.1:5173` the full round-trip succeeded: `users` 1 row, `sessions` 1 row, dashboard authenticated.
+- **Disposition:** `confirms` — H9. Doc-fix candidate for T8: guide §3b note — use a real browser and browse the dashboard on `127.0.0.1`, never `localhost` or an embedded webview.
+
+## 2026-08-06 — T7: claim rides the _saved update_, not the settings-page visit (H10; H11 live leg)
+
+- **Task:** T7 — first Connect GitHub click landed on the existing installation's settings page and no claim fired (`workspace_id` stayed NULL); founder retried per the corrected procedure: fresh Connect click (fresh 15-min state), then **Save under Repository access** on GitHub's page.
+- **Expected:** ADR-0012 flow — GitHub carries the signed `state` to the Setup URL; for an already-installed App the redirect only fires on a completed _update_ ("Redirect on update" ticked).
+- **Observed:** merely viewing the settings page fires nothing — GitHub redirects to the Setup URL only when an action completes. On Save: browser → `/api/github/setup` → `?connected=1` (the landing page is on :3001, which does not serve the SPA in dev — the URL, not the page, signals success). DB: installation 150087152 bound to workspace 2. The Save also emitted a real `installation_repositories` (`removed`) delivery at 14:00:55Z, processed and synced — H11's live leg on top of T4's first leg.
+- **Disposition:** `confirms` — H10 and H11. Doc-fix candidate for T8: guide §3b — state explicitly that for an existing installation the claim requires saving an update, and that the post-claim landing page in dev is the API port (check the URL for `connected=1`).
+
+## 2026-08-06 — T7: demo seed attached to the wrong workspace — first-created heuristic + a check that cannot fail (unregistered)
+
+- **Task:** T7 — Quarantine page showed "Nothing to propose" and `quarantine_records` was empty despite the seeded story; investigated before assuming score decay.
+- **Expected:** seed attaches demo installation 770001 to the founder's workspace; `Checkout.retries_on_timeout` proposes at ~0.53.
+- **Observed:** the flaky verdict existed all along (0.529, 3 divergences, computed same day) but in the wrong tenant: an accidental junk workspace (named from checkpoint SQL pasted into the create-workspace field, `created_at` 13:27) predated the real one (13:43), and `seed.mjs` attaches to the **first workspace by `created_at`**. Masking it: the seeder's "demo installation attached to workspace" check passes `true` unconditionally (`seed.mjs:307`) — it cannot fail, so mis-attachment reported as success. The "0.28 suspected" initially blamed was the real repo's test, correct at 0.28. Remedy: FK-ordered removal of the junk workspace (detach 770001 → delete members → delete workspace), re-ran `pnpm demo:seed` — deliveries converged as duplicates, attach bound 770001 to the real workspace, proposal appeared.
+- **Disposition:** `code-fix` candidate for T8 reconciliation: assert the attach UPDATE's row count in the seeder check; reconsider the first-workspace heuristic (or document it). Doc note for `scripts/demo/README.md`: the story seeds at 0.529 — deliberately just above the 0.5 flaky threshold — so the quarantine click-through must happen within days of seeding, before read-time decay pulls it under.
+
+## 2026-08-06 — T7 closed: quarantine approved in the real UI (gate row 2 evidence)
+
+- **Task:** T7 — with the demo data attached to the real workspace, founder opened the Quarantine page, saw the proposal, and approved it.
+- **Expected:** plan completion criteria — session and claim rows exist; dashboard shows real repos; a quarantine decision row exists from a real UI click.
+- **Observed:** all three. Proposal for `checkout-service · checkout-suite/Checkout.retries_on_timeout` (effective ~0.53) rendered; approval wrote `quarantine_records` row 1: `status = 'active'`, `created_by` = the real session user, `created_at` 2026-08-06 14:15:39Z, no reason text. Dashboard shows the real and demo repositories side by side. Screenshots: founder-captured, 2026-08-06 (dashboard with real + demo repositories; quarantine approval).
+- **Disposition:** `confirms` — T7 complete per its stated criteria. This entry is release-checklist gate row 2's evidence link (flips at T8). Outstanding for exit criterion 3 (MVP loop, "live feed shows activity"): a live-feed observation during real traffic — closed 2026-08-07; see that day's entries (tunnel-down false negatives → repo-removal root cause → live observation).
+
+## 2026-08-06 — T8: H8 dispositioned `not-observable` — the Checks-permission lag never occurred
+
+- **Task:** T8 reconciliation. H8 predicted transient-403 handling (retries into DLQ, ingestion unblocked) **if** Checks-permission approval lagged installation — registered as observable only under that lag.
+- **Expected:** per the prediction's own criteria column, only observable if the lag happens.
+- **Observed:** it never did. The App was created at T3 with its permissions before any installation; every check write across T6–T7 succeeded on first attempt (`created` ×3, `updated` ×1; no DLQ entries). The retry classification remains covered by unit/e2e against the stub only.
+- **Disposition:** `not-observable` — with rationale recorded per the plan. Stage 2 soak should watch for the first real permission-lag occurrence (new installs on other accounts are the likely trigger).
+
+## 2026-08-06 — T8: H12 closed — no token-exchange 401s across the stage (passive watch, confirmed)
+
+- **Task:** T8 reconciliation. H12 (environment, passive, all-stage): WSL2 clock drift after host sleep does not invalidate freshly minted App JWTs; the 60 s backdate absorbs it.
+- **Expected:** no 401 bursts across the stage's sessions; failure signature was intermittent token-exchange 401s correlating with host sleep.
+- **Observed:** none, anywhere in the stage's record. Every real-API interaction succeeded — T5 token dance, T6 check create/PATCH, T7 traffic; all 17 `workflow_runs` rows end `processing_status = 'succeeded'` (a token failure would have surfaced as failed processing or DLQ entries; there are none). The stage spanned multiple environment restarts and host sleeps (2026-08-01 tunnel drop; 2026-08-06 full-stack restart) without a single 401 logged.
+- **Disposition:** `confirms` — within the scope observed across the stage; the soak extends the watch window.
+
+## 2026-08-06 — T8: authorship rewrite of 2026-08-01 — old→new commit-hash mapping (repository record)
+
+- **Task:** T8 — founder-approved deferred cleanup from 2026-08-01, when `docs/v01x-stage1-validation` was rewritten to strip Co-Authored-By trailers. Earlier log entries and commit messages citing pre-rewrite hashes stay byte-identical (this log is append-only); this entry is the durable mapping.
+- **Mapping (old → new):** T1 plan-of-record `aff6abf` → `729333c`; T2 absorption ruling `58bc76f` → `4a94b82`; T3 real-App walk `1445fad` → `290b745`; T4 inbound validation `be1ede4` → `387d3dd`; T5 outbound validation `cd61f7a` → `6b1e4aa`.
+- **Repairs:** the one live stale reference — the `aff6abf` parenthetical in `stage1-plan.md` §T2 — updated to `729333c` in this change. The stale hash inside the T2 commit message itself is documented here, not rewritten.
+- **Disposition:** repository record; no hypothesis touched.
+
+## 2026-08-07 — Live-feed check: a tunnel-down false negative; the socket path verified end-to-end by authenticated probe (unregistered)
+
+- **Task:** exit criterion 3's last clause — founder re-ran the workflow with the Runs page open to observe the live update; the page did not update without a refresh. Investigated before recording a failure.
+- **Expected:** `run.ingested`/`run.processed`/`scores.updated` events reach the browser and the Runs list refetches on its own (ADR-0015).
+- **Observed:** the UI was **correctly quiet — no delivery ever arrived**: `webhook_events` has zero rows for 2026-08-07 (`max(received_at)` = 2026-08-06 14:03), no new `workflow_runs` row exists for the re-run, and the worker's `devflow_live_events_published_total` counter is empty since boot. The smee client was not running — the third forgotten-smee incident of the stage (cf. 2026-08-06 T6-closed; §4 note of 2026-07-30). The run the founder saw after refreshing was prior data. Separately, the server chain was verified by synthetic probe: two Socket.IO clients authenticated with the real session cookie — one direct to `:3001`, one through the Vite websocket proxy exactly as the browser connects — both joined room `ws:2` and both received a synthetic `run.ingested` published into `devflow:live-events` (ephemeral Redis pub/sub; no Postgres rows touched). Auth handshake, membership rooms, worker→Redis→API relay wiring, and the dev proxy are all confirmed working; the sole unobserved remainder is the browser refetch during real traffic. Also recorded: a naming gap — nothing in the UI is called "Activity" or "Feed"; the live feed is the Runs page silently refetching (`runs-page.tsx:16`), which the founder reasonably could not find by name.
+- **Disposition:** `confirms` the server path (probe); environment note for the tunnel. The exit-criterion clause **stays open** pending one real-traffic observation: smee client up → redeliver today's `workflow_run.completed` (or re-run) → watch the Runs page update unrefreshed; `devflow_live_events_published_total` incrementing is the corroborating counter. Doc-note for Stage 2 consideration: a visible activity indicator (or a "live" badge) would make the feed discoverable; no code change now.
+
+## 2026-08-07 — Live-feed retries explained: the claim's Save had removed `devflow-demo-flaky` from the installation (unregistered)
+
+- **Task:** after a further retry with the smee client running still produced zero deliveries, founder verified the App's Webhook URL character-for-character against the listening channel (identical) and found Recent Deliveries contained **no** `workflow_run` deliveries for the day at all — GitHub was not creating them. Compared the stored `installation_repositories` payloads.
+- **Expected:** a completed rerun on a covered repo generates a `workflow_run` delivery.
+- **Observed:** the repo was no longer covered. Payloads: 2026-08-06 14:00:55Z `repositories_removed: [devflow-demo-flaky]` with nothing added — the T7 claim-flow Save had toggled the repo **off**, and the re-add half of the toggle never happened (contrast 2026-07-31, where removed 13:46:46 → added 13:46:54 completed the round trip). From that moment GitHub created no deliveries for the repo, dooming every live-feed retry at the source; the claim's own success (`?connected=1`) masked the side effect. The two retries where a "new run" was seen after refreshing are also explained: the DB shows no new rows on those attempts — pre-existing rows were misread as new, which is why this log rules on recorded state, not impressions. Remedy: repo re-added 16:26:53Z (`installation_repositories` `added`, GUID `cc310280-…`) — the pipe's first real delivery since the removal, arriving through the tunnel within seconds of the Save.
+- **Disposition:** `doc-fix` — guide §3b gains a caution on the claim's update-Save: if the repository selection is toggled to force the update, re-check the final selection before saving; removing a repo silently stops every delivery for it. Lands in this closeout change.
+
+## 2026-08-07 — Exit criterion 3 closed: live feed observed under real traffic (unregistered)
+
+- **Task:** the clean test, every link now verified beforehand: repo restored to the installation, smee client on the App's exact channel, Runs page loaded once at `127.0.0.1:5173` and untouched thereafter; founder re-ran the workflow.
+- **Expected:** the run appears in the Runs list without a refresh (ADR-0015: event → invalidate → REST refetch); the worker's publish counters increment.
+- **Observed:** the full chain, correlated: `workflow_run` `in_progress` (GUID `3efad7f0-…`, 16:30:06Z) and `completed` (GUID `483a3ea0-…`, 16:30:21Z) delivered; run row 31 (`github_run_id` 31088393065, attempt 7) processed `succeeded`; `devflow_live_events_published_total` = `run.ingested` 1, `run.processed` 1, `scores.updated` 1 — the first live events ever published by this stack (every earlier real run was processed while the installation was unclaimed, where the publisher is correctly silent). Founder observed the Runs page update on its own, no manual refresh.
+- **Disposition:** `confirms` — ADR-0015's chain live end to end: GitHub → tunnel → HMAC → queue → worker → Redis → Socket.IO room → Vite ws proxy → browser refetch. Exit criterion 3's last clause is closed; the MVP loop is fully demonstrated against reality. The naming-gap doc-note (no page called "Feed") stands for Stage 2.
