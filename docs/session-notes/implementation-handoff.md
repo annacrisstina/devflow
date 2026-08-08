@@ -2,9 +2,16 @@
 
 > **The operational handoff.** Always reflects the latest repository state; updated at the end of EVERY working session. A new engineer (human or AI) should be able to continue from this file alone, without any chat history. Background knowledge lives in [../project-memory/](../project-memory/); read [project-overview.md](../project-memory/project-overview.md) and [implementation-rules.md](../project-memory/implementation-rules.md) first.
 
-**Last updated:** 2026-08-07 (v0.1.x Stage 1 complete with **no open clauses** — the live-feed criterion closed on real traffic after a root-cause hunt; T8 closeout committed on the stage branch in two founder-approved commits; push/PR/merge are founder actions). This update also retro-covers Stage 0 (2026-07-28/29), whose session missed its handoff update — Stage 0 and the Stage 1 sessions are recorded in [session-history](../project-memory/session-history.md).
+**Last updated:** 2026-08-08 (portfolio repositioning session — see current status below).
 
-## Current repository status (v0.1.x Stage 1 — 2026-08-07)
+## Current repository status (portfolio repositioning — 2026-08-08)
+
+- Since the last handoff, the founder completed the Stage 1 closeout actions: the stage branch merged as PR #17, the **v0.1.0 GitHub Release is published**, and `main` is clean at `345fada`. The demo video ([storyboard](../../scripts/demo/README.md)) is still unrecorded.
+- **This session: the repository was repositioned as a public personal portfolio project** (D16 in [engineering-decisions.md](../project-memory/engineering-decisions.md), founder-ruled): LICENSE / CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / issue forms removed, CONTRIBUTING's process content folded into [conventions.md](../conventions.md), `package.json` license fields → `UNLICENSED`, README rewritten as a recruiter-facing, product-first landing page with a complete 12-step quick start and a source-availability statement (author byline sits in the closing About section; **no screenshots section** — the founder presents screenshots separately on LinkedIn, ruled 2026-08-08). Supporting accuracy fixes: doctor.sh "Next:" hint now includes the migrate step; `.env.example` OAuth comment corrected (the toggle stays **unchecked** — it contradicted the guide §3b) and the worker's undocumented size-guard/API-URL variables added; demo storyboard closing line updated.
+- Work sits on branch **`docs/portfolio-repositioning`**; commits are founder-gated per this session's instruction (diff review before any commit), and push/PR/merge remain founder actions as always.
+- **Founder follow-ups (GitHub-side, not in the repo):** set the About description / homepage / topics, disable Wiki + Projects, pin the repository on the profile.
+
+## Previous status (v0.1.x Stage 1 — 2026-08-07)
 
 - **Branch `docs/v01x-stage1-validation`** (from `main`; note the 2026-08-01 authorship rewrite — hash mapping in the [observation log](../validation/observation-log.md)): **Stage 1 complete.** All 13 prediction rows dispositioned (12 confirmed, H8 `not-observable`), both founder gate rows ✅ in the [release checklist](v0.1.0-release-checklist.md), [validation-report.md](../validation/validation-report.md) written.
 - **T8 closeout committed in two founder-approved commits** (`fix(demo)`: the seeder attach assert; `docs(validation)`: everything else): observation-log entries (T6 close through the 2026-08-07 live-feed closure), prediction flips, checklist gate rows + dated updates, validation report, guide §3b dev-browser/claim rules incl. the repository-selection caution, demo README timing/tenancy notes, stage1-plan stale-hash repair, dev-log Stage 1 entry, session-history entries, this handoff.
@@ -23,8 +30,8 @@
 
 ## What remains (all founder-gated, in order)
 
-1. **Push the branch; open the Stage 1 PR; merge** (gates pre-run: `pnpm verify` green, `pnpm e2e` 21/21; nothing else is open).
-2. Per the checklist's Stage 1 closeout updates: create the **GitHub Release** from the CHANGELOG 0.1.0 section, record the **demo video** ([storyboard](../../scripts/demo/README.md)) — together with Stage 1 these are the portfolio-presentable milestone — then the Dependabot majors queue (D-M6-6) and the **Stage 2 soak** ([scope proposal](../validation/validation-report.md), §6, awaiting ratification).
+1. **Review, approve and commit the repositioning change set** on `docs/portfolio-repositioning`; push; PR; merge. _(Stage 1's push/PR/merge and the GitHub Release are done — see current status.)_
+2. Record the **demo video** ([storyboard](../../scripts/demo/README.md)) and capture the README screenshots; then the Dependabot majors queue (D-M6-6) and the **Stage 2 soak** ([scope proposal](../validation/validation-report.md), §6, awaiting ratification).
 
 ## Docker: healed, root cause found (2026-07-20)
 

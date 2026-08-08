@@ -4,7 +4,7 @@
 
 ## Vision
 
-**DevFlow** is an open-source, self-hostable **CI reliability platform** for GitHub Actions. It detects, quantifies and proposes quarantine for **flaky tests** — tests that pass and fail nondeterministically without code changes — before they erode a team's trust in its CI pipeline.
+**DevFlow** is a self-hostable **CI reliability platform** for GitHub Actions. It detects, quantifies and proposes quarantine for **flaky tests** — tests that pass and fail nondeterministically without code changes — before they erode a team's trust in its CI pipeline.
 
 High-level positioning: a "Developer Productivity Platform" whose first (MVP) module is CI reliability. Everything else is post-MVP.
 
@@ -16,7 +16,7 @@ A flaky test is the most expensive kind of noise in a CI pipeline:
 - It forces **blind re-runs** (minutes × developers × day of wasted compute and attention).
 - Worst of all, it **trains engineers to ignore red builds** — once "just re-run it" becomes reflex, real regressions ride in unnoticed. Google has published that ~16% of their tests exhibited flakiness and identified flaky tests as the primary driver of lost trust in CI signal.
 
-What teams do today: `retry: 3` in config (hides the problem), `skip` with a TODO that never gets resolved, or simply suffer. Existing products that solve this properly — BuildPulse, Trunk Flaky Tests, Datadog CI Visibility, Launchable — are **closed SaaS, per-seat, enterprise-priced**. There is no serious open-source, self-hostable alternative. That is the gap DevFlow fills.
+What teams do today: `retry: 3` in config (hides the problem), `skip` with a TODO that never gets resolved, or simply suffer. Existing products that solve this properly — BuildPulse, Trunk Flaky Tests, Datadog CI Visibility, Launchable — are **closed SaaS, per-seat, enterprise-priced**. There is no serious self-hostable alternative. That is the gap DevFlow demonstrates a solution for.
 
 ## Target users
 
@@ -30,7 +30,9 @@ This is a **portfolio project first**, built by a third-year Computer Science st
 
 - **CV impact and recruiter pattern-matching** — "CI reliability / devtools" maps directly onto the domains of the target companies.
 - **Interview material** — every architectural component (webhook ingestion, queues, idempotency, statistical detection, disciplined AI) doubles as a System Design interview answer.
-- **GitHub presence** — a mature, disciplined, genuinely usable open-source repository.
+- **GitHub presence** — a mature, disciplined, genuinely usable public repository.
+
+**Positioning update (founder-ruled 2026-08-08):** the repository now presents itself as exactly what this section describes — a public personal portfolio project. The open-source packaging (MIT license, CONTRIBUTING, code of conduct, security policy, issue forms) was removed; the source stays public for reading and evaluation, no license is granted going forward, and community contributions are not solicited (see [engineering-decisions.md](engineering-decisions.md) D16). Historical records keep their original wording.
 
 It is NOT optimized for startup viability, monetization, or growth. When a product decision and a portfolio decision conflict, the portfolio decision wins. That said, the product must be _real_: it solves a genuine problem, it must be genuinely usable, and its engineering must be honest — because faked engineering is detectable in interviews.
 

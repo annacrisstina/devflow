@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "DevFlow web dashboard: workspace views, flakiest-tests ranking, live run feed, quarantine workflow.",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "dev": "vite",

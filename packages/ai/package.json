@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "The amputable AI layer (ADR-0017): local failure-text embeddings, deterministic embedding-space clustering, and the BYO-key LLM client. Deleting this package and its enumerated call sites leaves a fully functional product.",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "type": "module",
   "exports": {
     "./embedder": {

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Background workers: consume ingest jobs, fetch artifacts, parse JUnit reports, persist normalized test results.",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
