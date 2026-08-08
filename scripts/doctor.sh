@@ -65,4 +65,4 @@ if [ "$failures" -gt 0 ]; then
   echo "$failures check(s) failed. Fix the items above, then re-run."
   exit 1
 fi
-echo "All checks passed. Next: docker compose up -d && pnpm install && pnpm verify"
+echo "All checks passed. Next: docker compose up -d && pnpm install && pnpm --filter @devflow/db db:migrate && pnpm verify"

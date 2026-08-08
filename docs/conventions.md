@@ -24,7 +24,20 @@ The rules of the road for this repository. Tooling enforces most of them (Pretti
 
 ## Commit convention
 
-[Conventional Commits](https://www.conventionalcommits.org/), enforced by commitlint in CI. Types are documented in [CONTRIBUTING.md](../CONTRIBUTING.md).
+[Conventional Commits](https://www.conventionalcommits.org/), enforced by commitlint in CI. Format: `type(scope): imperative summary` — e.g. `feat(ingest): verify webhook signatures before enqueueing`.
+
+### Commit types
+
+| Type       | Use for                                         |
+| ---------- | ----------------------------------------------- |
+| `feat`     | User-visible functionality                      |
+| `fix`      | Bug fixes                                       |
+| `docs`     | Documentation only (including ADRs)             |
+| `refactor` | Code change that is neither a feature nor a fix |
+| `test`     | Adding or correcting tests                      |
+| `chore`    | Tooling, dependencies, repo maintenance         |
+| `ci`       | CI pipeline changes                             |
+| `perf`     | Performance improvements                        |
 
 ### Commit scopes
 
@@ -43,9 +56,19 @@ Kept in sync with `commitlint.config.mjs`:
 | `shared` | Shared packages                               |
 | `deps`   | Dependency updates                            |
 
-## Branch strategy
+## Branch strategy: GitHub Flow
 
-GitHub Flow, described in [CONTRIBUTING.md](../CONTRIBUTING.md#branch-strategy-github-flow): protected `main`, short-lived `type/kebab-description` branches, squash merges, linear history.
+- `main` is always releasable and is protected — no direct pushes, PRs only.
+- Branch from `main`, keep branches short-lived (days, not weeks).
+- Branch names: `<type>/<short-kebab-description>`, e.g. `feat/webhook-hmac-verification`, `fix/junit-parser-crash`, `docs/adr-queue-choice`. Types match commit types above.
+- PRs are merged with **squash merge** — history on `main` stays linear, one commit per PR, and the PR title becomes the commit subject (so PR titles must follow Conventional Commits too).
+
+### Pull requests
+
+- Keep PRs small and single-purpose; a review pass should get through one in under 15 minutes.
+- Fill in the PR template — especially **how the change was verified**.
+- CI must be green (format, lint, typecheck, build, tests, commitlint).
+- Any architecturally significant decision (new dependency, new service, new pattern) requires an ADR in the same PR — see the [ADR template](adr/template.md).
 
 ## Development environment
 

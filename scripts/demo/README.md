@@ -12,6 +12,6 @@ Recording is a founder step; this is the script. Prep: fresh stack (`docker comp
 3. **The PR annotation (~30 s).** The neutral check run on a PR: names the known-flaky failure, links evidence. "Advisory by design — it can never block your merge."
 4. **Quarantine (~30 s).** Approve the seeded proposal in the dashboard; trigger a failing run; the next check labels the failure quarantined. "DevFlow proposes. A human decides. Always."
 5. **Insights (~30 s).** Semantic search for "gateway timed out" — paraphrases rank above unrelated failures; failure clusters; (optional, with a key) generate a root-cause hypothesis and show the provenance + verify-before-acting disclosure.
-6. **Live feed + self-host close (~20 s).** Push to the demo repo, watch the run appear live. Cut to the terminal: `docker compose --profile full up -d` → `docker compose ps` all healthy. "Open source, one command, your infrastructure."
+6. **Live feed + self-host close (~20 s).** Push to the demo repo, watch the run appear live. Cut to the terminal: `docker compose --profile full up -d` → `docker compose ps` all healthy. "Self-hosted, one command, your infrastructure."
 
 Total ≈ 2:50. Every beat runs on the seeded/live data above — no mocked screens.

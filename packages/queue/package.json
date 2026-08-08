@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Queue names, job payload contracts and Redis connection factory shared by producers (api) and consumers (worker).",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "type": "module",
   "exports": {
     "./ingest": {

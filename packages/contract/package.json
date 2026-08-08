@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Type-only contract between the API and its consumers: /api/v1 DTOs and live-event envelopes. No runtime code.",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "type": "module",
   "exports": {
     "./api": {
