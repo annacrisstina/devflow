@@ -32,7 +32,7 @@ This is a **portfolio project first**, built by a third-year Computer Science st
 - **Interview material** — every architectural component (webhook ingestion, queues, idempotency, statistical detection, disciplined AI) doubles as a System Design interview answer.
 - **GitHub presence** — a mature, disciplined, genuinely usable public repository.
 
-**Positioning update (founder-ruled 2026-08-08):** the repository now presents itself as exactly what this section describes — a public personal portfolio project. The open-source packaging (MIT license, CONTRIBUTING, code of conduct, security policy, issue forms) was removed; the source stays public for reading and evaluation, no license is granted going forward, and community contributions are not solicited (see [engineering-decisions.md](engineering-decisions.md) D16). Historical records keep their original wording.
+**Positioning update (founder-ruled 2026-09-11):** the repository is MIT-licensed, with issues welcome and external pull requests not accepted for now (see [engineering-decisions.md](engineering-decisions.md) D17). Historical records keep their original wording.
 
 It is NOT optimized for startup viability, monetization, or growth. When a product decision and a portfolio decision conflict, the portfolio decision wins. That said, the product must be _real_: it solves a genuine problem, it must be genuinely usable, and its engineering must be honest — because faked engineering is detectable in interviews.
 

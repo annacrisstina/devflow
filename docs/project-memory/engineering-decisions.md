@@ -107,11 +107,25 @@
 - **Demo-instance constraint (founder-ruled 2026-07-28):** a public demo instance, if ever deployed, accepts no App installations and holds no third-party data — seeded synthetic data only. Not planned for v0.1.x.
 - **Terminology guard:** DevFlow remains multi-tenant _software_ (workspaces, ADR-0012); this decision is about _operation_. Isolation discipline (per-endpoint cross-tenant denial tests) stays mandatory.
 
-## D16. Public positioning: personal portfolio project, not open-source — Locked (founder-ruled 2026-08-08)
+### D16 — Relicense repository as all-rights-reserved portfolio project (Superseded by D17)
 
 - **Decision:** the repository presents itself as a public personal software-engineering portfolio project whose primary audience is recruiters and hiring managers. The open-source packaging shipped in M0 — MIT LICENSE, CONTRIBUTING, CODE_OF_CONDUCT (Contributor Covenant 2.1), SECURITY policy, issue forms — was removed, and `package.json` license fields became `UNLICENSED`. The source stays public for reading and evaluation, but no license is granted going forward and contributions are not solicited. The engineering-process content of CONTRIBUTING (commit types, branch strategy, PR rules) moved into [conventions.md](../conventions.md); the README carries an explicit author byline and a source-availability statement.
 - **Motivation:** the project was always portfolio-first (see [project-overview.md](project-overview.md), "honest version"). The community packaging promised things a solo project cannot honor — a security-response SLA, community governance, contribution review — and pointed the repository's story away from its actual goal: legible evidence of engineering discipline.
 - **Boundaries:** v0.1.0 and earlier were published under MIT; that grant is irrevocable for copies already obtained, and the `v0.1.0` tag keeps its LICENSE file in history — removal governs the repository going forward. Historical records (ADRs, development log, validation record, the CHANGELOG 0.1.0 entry) keep their original open-source wording: they describe what was true when written.
+
+### D17 — Relicense under the MIT License (2026-09-11)
+
+**Context:**
+D16 restricted licensing to present the repository purely as an all-rights-reserved personal portfolio. The project is being reopened under a permissive license to allow easy evaluation, running, and forkability.
+
+**Decision:**
+Supersede D16. The project is relicensed under the MIT License. A root LICENSE file is added, and package.json license fields are set to MIT. Issue reports remain welcome, but external pull requests are not accepted for now.
+
+**Consequences:**
+
+- The repository contains an MIT LICENSE file and valid package.json metadata.
+- Code can be freely inspected, run, and forked under MIT terms.
+- External PRs remain closed or discouraged to keep development aligned with the founder's roadmap.
 
 ---
 
