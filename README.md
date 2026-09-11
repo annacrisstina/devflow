@@ -200,10 +200,6 @@ compose.yaml    Dev infrastructure by default; --profile full runs the whole pro
 - [GitHub App setup](docs/github-app-setup.md)
 - [Demo tooling](scripts/demo/README.md)
 
-## About
-
-Built by Ana Tudosoiu as a portfolio project. [GitHub](https://github.com/annacrisstina) · [LinkedIn](https://www.linkedin.com/in/ana-tudosoiu/)
-
 ## License
 
-MIT, see [LICENSE](LICENSE). Issues are welcome, but I'm not taking pull requests for now.
+MIT, see [LICENSE](LICENSE).
