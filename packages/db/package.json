@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Database schema, migrations and connection factory for DevFlow.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "exports": {
     "./client": {

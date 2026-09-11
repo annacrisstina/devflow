@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "DevFlow HTTP API: GitHub webhook ingestion and the public REST surface.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
