@@ -202,4 +202,4 @@ compose.yaml    Dev infrastructure by default; --profile full runs the whole pro
 
 ## License
 
-MIT-[LICENSE](LICENSE).
+[MIT](LICENSE). Issues welcome, no PRs accepted for now.
